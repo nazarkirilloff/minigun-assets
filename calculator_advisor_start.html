@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MiniGun Advisor START — Калькулятор сетки</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#0a0e17;color:#e2e8f0;font-family:'DM Sans','SF Pro Display',-apple-system,BlinkMacSystemFont,sans-serif;-webkit-font-smoothing:antialiased}
+.cards-wrap{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px}
+.loss-card{flex:1 1 0;min-width:130}
+@media(max-width:700px){.loss-card{flex:1 1 100%;text-align:center}}
+select:focus,input:focus{border-color:#3b82f6!important;outline:none}
+::-webkit-scrollbar{height:6px;width:6px}
+::-webkit-scrollbar-track{background:#0f172a}
+::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+var useState = React.useState;
+var useEffect = React.useEffect;
+
+var MULTIPLIER = 1.15, RISK_PCT = 0.01, MAX_POS = 100;
+var FIXED_LOTS = [0.01,0.01,0.01,0.01,0.01, 0.02,0.02,0.02,0.02, 0.03,0.03,0.03, 0.04,0.04, 0.05];
+
+var INST_DATA = {
+  "EUR/USD":        { price: 1.09540, ps: 0.0001, cs: 100000, dec: 5, pl: "0.0001", inv: false },
+  "GBP/USD":        { price: 1.29430, ps: 0.0001, cs: 100000, dec: 5, pl: "0.0001", inv: false },
+  "AUD/USD":        { price: 0.64250, ps: 0.0001, cs: 100000, dec: 5, pl: "0.0001", inv: false },
+  "USD/CAD":        { price: 1.38600, ps: 0.0001, cs: 100000, dec: 5, pl: "0.0001", inv: true },
+  "USD/JPY":        { price: 149.850, ps: 0.01,   cs: 100000, dec: 3, pl: "0.01",   inv: true },
+  "Gold (XAU/USD)": { price: 4500.00, ps: 0.1,    cs: 100,    dec: 2, pl: "0.1",    inv: false },
+  "Oil (Brent)":    { price: 85.50,   ps: 0.01,   cs: 1000,   dec: 2, pl: "0.01",   inv: false },
+};
+var P_RANGES = {"EUR/USD":[.5,2.5],"GBP/USD":[.5,3],"AUD/USD":[.3,1.5],"USD/CAD":[.8,2],"USD/JPY":[50,300],"Gold (XAU/USD)":[500,10000],"Oil (Brent)":[10,200]};
+
+var LOT_LADDER = (function() {
+  var l = FIXED_LOTS.slice(); var prev = l[l.length-1];
+  for (var i=l.length;i<MAX_POS;i++){prev=Math.round(prev*MULTIPLIER*100)/100;if(prev<0.01)prev=0.01;l.push(prev)}
+  return l;
+})();
+
+function getPV(inst,price){var d=INST_DATA[inst];if(!d)return 10;return d.inv?d.cs*d.ps/price:d.cs*d.ps}
+
+function calcGrid(inst,price,depo,stp,dir){
+  var pv=getPV(inst,price),d=INST_DATA[inst],pipSz=d?d.ps:0.0001,sign=dir==="sell"?1:-1,riskAmt=depo*RISK_PCT;
+  var rows=[],cLot=0,stopIdx=-1;
+  for(var i=0;i<MAX_POS;i++){
+    var lot=LOT_LADDER[i];cLot=Math.round((cLot+lot)*100)/100;
+    var dist=i*stp,pl=price+sign*dist*pipSz,loss=0;
+    for(var j=0;j<=i;j++)loss+=LOT_LADDER[j]*(i-j)*stp*pv;
+    var wS=0,lS=0;for(var j2=0;j2<=i;j2++){wS+=(price+sign*j2*stp*pipSz)*LOT_LADDER[j2];lS+=LOT_LADDER[j2]}
+    var avg=lS>0?wS/lS:price,dAvg=Math.abs((pl-avg)/pipSz);
+    rows.push({n:i+1,lot:lot,cLot:cLot,pl:pl,dist:dist,loss:loss,rPct:loss/depo*100,avg:avg,dAvg:Math.round(dAvg*10)/10,isMult:i>=15});
+    if(stopIdx===-1&&loss>=riskAmt)stopIdx=i;
+  }
+  return{rows:rows,stopIdx:stopIdx,riskAmt:riskAmt};
+}
+
+function findOpt(inst,price,depo,sDist,dir){
+  var riskAmt=depo*RISK_PCT,below=null,above=null;
+  for(var n=2;n<=MAX_POS;n++){
+    var sp=Math.floor(sDist/(n-1));if(sp<1)break;
+    var res=calcGrid(inst,price,depo,sp,dir);if(!res||n-1>=res.rows.length)continue;
+    var p=res.rows[n-1];
+    var v={nPos:n,step:sp,loss:p.loss,rPct:p.rPct,aDist:sp*(n-1),cLot:p.cLot,result:res};
+    if(p.loss<riskAmt){if(!below||p.loss>below.loss)below=v}
+    else{if(!above||p.loss<above.loss)above=v;break}
+  }
+  return{below:below,above:above};
+}
+
+function saveLS(s){try{localStorage.setItem("mg5",JSON.stringify(s))}catch(e){}}
+function loadLS(){try{return JSON.parse(localStorage.getItem("mg5"))}catch(e){return null}}
+
+function TipComp(props){
+  var _s=useState(false),show=_s[0],setShow=_s[1];
+  return(<span style={{position:"relative",display:"inline-block",marginLeft:6,cursor:"help"}}
+    onMouseEnter={function(){setShow(true)}} onMouseLeave={function(){setShow(false)}} onClick={function(){setShow(!show)}}>
+    <span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:18,height:18,borderRadius:"50%",background:"rgba(59,130,246,.2)",color:"#60a5fa",fontSize:11,fontWeight:700}}>?</span>
+    {show&&<span style={{position:"absolute",bottom:"calc(100% + 8px)",left:"50%",transform:"translateX(-50%)",background:"#1e293b",color:"#cbd5e1",padding:"10px 14px",borderRadius:8,fontSize:12,lineHeight:1.5,width:280,zIndex:100,boxShadow:"0 8px 32px rgba(0,0,0,.5)",border:"1px solid #334155",whiteSpace:"normal"}}>{props.text}</span>}
+  </span>);
+}
+
+function WarnBox(props){
+  var colors={info:{bg:"rgba(59,130,246,.08)",br:"#3b82f6",ic:"\u2139\uFE0F"},warn:{bg:"rgba(245,158,11,.08)",br:"#f59e0b",ic:"\u26A0\uFE0F"},danger:{bg:"rgba(239,68,68,.08)",br:"#ef4444",ic:"\uD83D\uDD34"}};
+  var c=colors[props.type]||colors.info;
+  return<div style={{background:c.bg,borderLeft:"3px solid "+c.br,padding:"10px 14px",borderRadius:"0 8px 8px 0",marginBottom:10,fontSize:13,color:"#cbd5e1",lineHeight:1.5}}><span style={{marginRight:8}}>{c.ic}</span>{props.children}</div>;
+}
+
+function SCard(props){
+  return(<div style={{background:"#111827",border:"1px solid #1e293b",borderRadius:12,padding:"14px 16px",flex:"1 1 0",minWidth:130}}>
+    <div style={{fontSize:11,color:"#64748b",marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>{props.label}</div>
+    <div style={{fontSize:22,fontWeight:700,color:props.color||"#e2e8f0",fontVariantNumeric:"tabular-nums",lineHeight:1.2}}>{props.value}</div>
+    {props.sub&&<div style={{fontSize:11,color:"#94a3b8",marginTop:4}}>{props.sub}</div>}
+  </div>);
+}
+
+function ChartSVG(props){
+  var positions=props.positions,sp=props.stopIdx,deposit=props.deposit;
+  if(!positions||positions.length<2)return null;
+  var end=Math.min(sp>=0?sp+5:positions.length,60),dp=positions.slice(0,end);
+  if(dp.length<2)return null;
+  var maxL=1;for(var i=0;i<dp.length;i++){if(dp[i].loss>maxL)maxL=dp[i].loss}
+  var rL=deposit*RISK_PCT,W=740,H=220,pL=55,pR=56,pT=20,pB=30,cW=W-pL-pR,cH=H-pT-pB;
+  function sx(idx){return pL+(idx/(dp.length-1))*cW}
+  function sy(v){return pT+cH-(v/maxL)*cH}
+  var bW=Math.max(2,cW/dp.length-1),rY=sy(rL);
+  var gLines=[.25,.5,.75,1].map(function(f){return<g key={f}><line x1={pL} y1={sy(maxL*f)} x2={W-pR} y2={sy(maxL*f)} stroke="#1e293b"/><text x={pL-6} y={sy(maxL*f)+4} textAnchor="end" fill="#475569" fontSize="9">{"$"+Math.round(maxL*f)}</text></g>});
+  var bars=dp.map(function(p,idx){return<rect key={idx} x={sx(idx)-bW/2} y={sy(p.loss)} width={bW} height={Math.max(0,cH-(sy(p.loss)-pT))} fill={sp<0||idx<=sp?"url(#bgGrad)":"#334155"} rx="1" opacity={sp>=0&&idx>sp?0.3:1}/>});
+  var labels=[];var stp2=Math.max(1,Math.floor(dp.length/10));for(var j=0;j<dp.length;j+=stp2){labels.push(<text key={j} x={sx(j)} y={H-8} textAnchor="middle" fill="#475569" fontSize="9">{"#"+(j+1)}</text>)}
+  return(<svg viewBox={"0 0 "+W+" "+H} style={{width:"100%",height:"auto",display:"block"}}>
+    <defs><linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#3b82f6" stopOpacity="0.9"/><stop offset="100%" stopColor="#06b6d4" stopOpacity="0.3"/></linearGradient></defs>
+    {gLines}{bars}
+    {rL<=maxL&&<g><line x1={pL} y1={rY} x2={W-pR} y2={rY} stroke="#ef4444" strokeWidth="1.5" strokeDasharray="6,4"/><text x={W-pR+4} y={rY+4} fill="#ef4444" fontSize="10" fontWeight="600">{"\u0421\u0422\u041E\u041F"}</text></g>}
+    {labels}
+  </svg>);
+}
+
+function App(){
+  var saved=loadLS();
+  var _mode=useState(saved?saved.mode||"stopDist":"stopDist"),mode=_mode[0],setMode=_mode[1];
+  var _inst=useState(saved?saved.instrument||"Gold (XAU/USD)":"Gold (XAU/USD)"),instrument=_inst[0],setInstrument=_inst[1];
+  var _price=useState(saved?saved.price||4500:4500),price=_price[0],setPrice=_price[1];
+  var _depo=useState(saved?saved.deposit||5000:5000),deposit=_depo[0],setDeposit=_depo[1];
+  var _step=useState(saved?saved.step||50:50),step=_step[0],setStep=_step[1];
+  var _sd=useState(saved?saved.stopDist||300:300),stopDist=_sd[0],setStopDist=_sd[1];
+  var _dir=useState(saved?saved.direction||"buy":"buy"),direction=_dir[0],setDirection=_dir[1];
+  var _sc=useState(0),showCount=_sc[0],setShowCount=_sc[1];
+  var _sh=useState(false),showHelp=_sh[0],setShowHelp=_sh[1];
+  var _sv=useState("below"),selVar=_sv[0],setSelVar=_sv[1];
+  var _pi=useState(String(saved?saved.price||4500:4500)),priceIn=_pi[0],setPriceIn=_pi[1];
+  var _di=useState(String(saved?saved.deposit||5000:5000)),depoIn=_di[0],setDepoIn=_di[1];
+  var _si=useState(String(saved?saved.step||50:50)),stepIn=_si[0],setStepIn=_si[1];
+  var _sti=useState(String(saved?saved.stopDist||300:300)),stopIn=_sti[0],setStopIn=_sti[1];
+  var _pe=useState(""),priceErr=_pe[0],setPriceErr=_pe[1];
+
+  var instD=INST_DATA[instrument];
+
+  useEffect(function(){if(instD){setPrice(instD.price);setPriceIn(instD.price.toFixed(instD.dec));setPriceErr("")}},[instrument]);
+  useEffect(function(){saveLS({mode:mode,instrument:instrument,price:price,deposit:deposit,step:step,stopDist:stopDist,direction:direction})},[mode,instrument,price,deposit,step,stopDist,direction]);
+
+  var depErr="";if(deposit<10)depErr="\u041C\u0438\u043D\u0438\u043C\u0443\u043C $10";if(deposit>1e7)depErr="\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C $10 000 000";
+  var stpErr="";if(mode==="step"&&step<1)stpErr="\u041C\u0438\u043D\u0438\u043C\u0443\u043C 1 \u043F\u0438\u043F\u0441";if(mode==="step"&&step>1000)stpErr="\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C 1000";
+  var sdErr="";if(mode==="stopDist"&&stopDist<2)sdErr="\u041C\u0438\u043D\u0438\u043C\u0443\u043C 2 \u043F\u0438\u043F\u0441\u0430";if(mode==="stopDist"&&stopDist>10000)sdErr="\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C 10 000";
+  var pErr="";if(price<=0)pErr="\u0426\u0435\u043D\u0430 > 0";
+  var pWarn="";var rng=P_RANGES[instrument];if(rng&&price>0&&(price<rng[0]||price>rng[1]))pWarn="\u041D\u0435\u0442\u0438\u043F\u0438\u0447\u043D\u0430\u044F \u0446\u0435\u043D\u0430 \u0434\u043B\u044F "+instrument;
+  var canCalc=!depErr&&!pErr&&!priceErr&&price>0&&deposit>=10;
+
+  var resultStep=null;
+  if(canCalc&&mode==="step"&&!stpErr&&step>=1){try{resultStep=calcGrid(instrument,price,deposit,step,direction)}catch(e){}}
+  var resultSD=null;
+  if(canCalc&&mode==="stopDist"&&!sdErr&&stopDist>=2){try{resultSD=findOpt(instrument,price,deposit,stopDist,direction)}catch(e){}}
+
+  var activeVar=null;
+  if(mode==="stopDist"&&resultSD){
+    if(selVar==="below"&&resultSD.below)activeVar=resultSD.below;
+    else if(selVar==="above"&&resultSD.above)activeVar=resultSD.above;
+    else if(resultSD.below)activeVar=resultSD.below;
+    else if(resultSD.above)activeVar=resultSD.above;
+  }
+
+  var result=null,stopPos=-1;
+  if(mode==="step"&&resultStep){result=resultStep;stopPos=resultStep.stopIdx}
+  else if(activeVar){result=activeVar.result;stopPos=activeVar.nPos-1}
+  var riskAmount=deposit*RISK_PCT;
+
+  var warns=[];
+  if(mode==="step"&&resultStep){
+    if(resultStep.stopIdx===0)warns.push({t:"danger",m:"\u0414\u0430\u0436\u0435 \u043E\u0434\u043D\u0430 \u043F\u043E\u0437\u0438\u0446\u0438\u044F \u043F\u0440\u0435\u0432\u044B\u0448\u0430\u0435\u0442 1% \u0440\u0438\u0441\u043A\u0430. \u0423\u0432\u0435\u043B\u0438\u0447\u044C\u0442\u0435 \u0434\u0435\u043F\u043E\u0437\u0438\u0442 \u0438\u043B\u0438 \u0448\u0430\u0433."});
+    if(resultStep.stopIdx>=15)warns.push({t:"warn",m:"\u041C\u0443\u043B\u044C\u0442\u0438\u043F\u043B\u0438\u043A\u0430\u0442\u043E\u0440 \u00D71.15 \u0430\u043A\u0442\u0438\u0432\u0435\u043D \u0441 16-\u0439 \u043F\u043E\u0437\u0438\u0446\u0438\u0438. \u041B\u043E\u0442\u044B \u0440\u0430\u0441\u0442\u0443\u0442 \u044D\u043A\u0441\u043F\u043E\u043D\u0435\u043D\u0446\u0438\u0430\u043B\u044C\u043D\u043E."});
+    if(resultStep.stopIdx>=30)warns.push({t:"warn",m:"\u041B\u043E\u0442\u0430\u0436 \u0440\u0430\u0441\u0442\u0451\u0442 \u043E\u0447\u0435\u043D\u044C \u0430\u0433\u0440\u0435\u0441\u0441\u0438\u0432\u043D\u043E. \u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u043B\u0438\u043C\u0438\u0442 \u0443\u0431\u044B\u0442\u043A\u0430 \u0441\u043E\u0432\u0435\u0442\u043D\u0438\u043A\u0430."});
+    if(resultStep.stopIdx<0)warns.push({t:"danger",m:"100 \u043F\u043E\u0437\u0438\u0446\u0438\u0439 \u043D\u0435 \u0434\u043E\u0441\u0442\u0438\u0433\u0430\u044E\u0442 1% \u0440\u0438\u0441\u043A\u0430. \u0423\u043C\u0435\u043D\u044C\u0448\u0438\u0442\u0435 \u0448\u0430\u0433."});
+  }
+  if(mode==="stopDist"&&resultSD){
+    if(!resultSD.below&&!resultSD.above)warns.push({t:"danger",m:"\u041D\u0435\u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E \u043F\u043E\u0441\u0442\u0440\u043E\u0438\u0442\u044C \u0441\u0435\u0442\u043A\u0443. \u0428\u0430\u0433 \u043C\u0435\u043D\u0435\u0435 1 \u043F\u0438\u043F\u0441\u0430."});
+    if(activeVar&&activeVar.step===1)warns.push({t:"warn",m:"\u0428\u0430\u0433 1 \u043F\u0438\u043F\u0441 \u2014 \u043C\u0438\u043D\u0438\u043C\u0430\u043B\u044C\u043D\u044B\u0439. \u0421\u043F\u0440\u0435\u0434 \u043C\u043E\u0436\u0435\u0442 \u0431\u044B\u0442\u044C \u0441\u043E\u043F\u043E\u0441\u0442\u0430\u0432\u0438\u043C \u0441 \u0448\u0430\u0433\u043E\u043C."});
+    if(activeVar&&activeVar.nPos>15)warns.push({t:"warn",m:"\u041C\u0443\u043B\u044C\u0442\u0438\u043F\u043B\u0438\u043A\u0430\u0442\u043E\u0440 \u00D71.15 \u0430\u043A\u0442\u0438\u0432\u0435\u043D \u0441 16-\u0439 \u043F\u043E\u0437\u0438\u0446\u0438\u0438. \u041B\u043E\u0442\u044B \u0440\u0430\u0441\u0442\u0443\u0442 \u044D\u043A\u0441\u043F\u043E\u043D\u0435\u043D\u0446\u0438\u0430\u043B\u044C\u043D\u043E."});
+    if(activeVar&&activeVar.nPos>30)warns.push({t:"warn",m:"\u041B\u043E\u0442\u0430\u0436 \u0440\u0430\u0441\u0442\u0451\u0442 \u043E\u0447\u0435\u043D\u044C \u0430\u0433\u0440\u0435\u0441\u0441\u0438\u0432\u043D\u043E."});
+  }
+
+  var cardData=null;
+  if(mode==="step"&&resultStep&&stopPos>=0&&resultStep.rows[stopPos]){
+    var r=resultStep.rows[stopPos];cardData={nPos:stopPos+1,step:step,aDist:r.dist,cLot:r.cLot,loss:r.loss,rPct:r.rPct};
+  }else if(activeVar){cardData=activeVar}
+
+  var defaultShow=Math.max(stopPos>=0?stopPos+6:16,16);
+  var showSteps=[30,50,70,100].filter(function(s){return s>defaultShow});
+  var limit=showCount===0?defaultShow:(showSteps[showCount-1]||100);
+  var displayPos=result?result.rows.slice(0,Math.min(limit,result.rows.length)):[];
+  var nextLabel=showCount<showSteps.length?showSteps[showCount]:null;
+
+  var fP=function(p){return p.toFixed(instD?instD.dec:2)};
+  var fM=function(v){if(v<10)return v.toFixed(2);if(v<1000)return v.toFixed(1);return Math.round(v).toLocaleString("ru-RU")};
+  var pw=function(n){return n===1?"\u043F\u0438\u043F\u0441":(n>=2&&n<=4)?"\u043F\u0438\u043F\u0441\u0430":"\u043F\u0438\u043F\u0441\u043E\u0432"};
+  var groupBounds={5:true,9:true,12:true,14:true,15:true};
+  var inpSt=function(err){return{background:"#0f172a",border:"1px solid "+(err?"#ef4444":"#334155"),borderRadius:8,padding:"10px 14px",color:"#e2e8f0",fontSize:15,fontVariantNumeric:"tabular-nums",width:"100%",outline:"none",boxSizing:"border-box"}};
+
+  var handlePrice=function(e){
+    var val=e.target.value;setPriceIn(val);
+    if(val.indexOf(".")>=0&&instD){var parts=val.split(".");if(parts[1]&&parts[1].length>instD.dec){setPriceErr("\u041C\u0430\u043A\u0441. "+instD.dec+" \u0437\u043D\u0430\u043A\u043E\u0432 \u043F\u043E\u0441\u043B\u0435 \u0442\u043E\u0447\u043A\u0438");return}}
+    setPriceErr("");var v=parseFloat(val);if(!isNaN(v)&&v>0)setPrice(v);
+  };
+
+  var shareUrl=(function(){var b=window.location.origin+window.location.pathname;
+    if(mode==="step")return b+"?mode=step&pair="+encodeURIComponent(instrument)+"&price="+price+"&deposit="+deposit+"&step="+step+"&dir="+direction;
+    return b+"?mode=stopDist&pair="+encodeURIComponent(instrument)+"&price="+price+"&deposit="+deposit+"&stop="+stopDist+"&dir="+direction})();
+  var handleShare=function(){if(navigator.clipboard){navigator.clipboard.writeText(shareUrl).then(function(){alert("\u0421\u0441\u044B\u043B\u043A\u0430 \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D\u0430!")})}else{prompt("\u0421\u043A\u043E\u043F\u0438\u0440\u0443\u0439\u0442\u0435:",shareUrl)}};
+
+  var hasBelow=resultSD?resultSD.below:null,hasAbove=resultSD?resultSD.above:null;
+  var showResults=result&&stopPos>=0&&cardData;
+
+  return(
+    <div style={{minHeight:"100vh"}}>
+      <div style={{padding:"16px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid #1e293b",background:"#0d1117",flexWrap:"wrap",gap:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <div style={{width:36,height:36,borderRadius:8,background:"linear-gradient(135deg,#3b82f6,#06b6d4)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:16,color:"#fff"}}>M</div>
+          <div><div style={{fontWeight:700,fontSize:16,letterSpacing:-0.5}}>MiniGun Advisor START</div><div style={{fontSize:11,color:"#64748b"}}>Калькулятор сетки</div></div>
+        </div>
+        <button onClick={handleShare} style={{background:"rgba(59,130,246,.1)",border:"1px solid #334155",borderRadius:8,padding:"8px 16px",color:"#60a5fa",fontSize:13,cursor:"pointer"}}>{"\uD83D\uDD17 \u041F\u043E\u0434\u0435\u043B\u0438\u0442\u044C\u0441\u044F"}</button>
+      </div>
+      <div style={{maxWidth:1100,margin:"0 auto",padding:"24px 20px"}}>
+        <div style={{display:"flex",gap:4,background:"#111827",borderRadius:12,padding:4,marginBottom:20,border:"1px solid #1e293b"}}>
+          <button onClick={function(){setMode("stopDist");setShowCount(0);setSelVar("below")}} style={{flex:1,padding:"12px 16px",borderRadius:8,border:"none",cursor:"pointer",fontSize:14,fontWeight:600,background:mode==="stopDist"?"linear-gradient(135deg,rgba(59,130,246,.15),rgba(6,182,212,.1))":"transparent",color:mode==="stopDist"?"#60a5fa":"#64748b",borderBottom:mode==="stopDist"?"2px solid #3b82f6":"2px solid transparent"}}>{"\u041F\u043E \u0440\u0430\u0441\u0441\u0442\u043E\u044F\u043D\u0438\u044E \u0434\u043E \u0441\u0442\u043E\u043F\u0430"}</button>
+          <button onClick={function(){setMode("step");setShowCount(0);setSelVar("below")}} style={{flex:1,padding:"12px 16px",borderRadius:8,border:"none",cursor:"pointer",fontSize:14,fontWeight:600,background:mode==="step"?"linear-gradient(135deg,rgba(59,130,246,.15),rgba(6,182,212,.1))":"transparent",color:mode==="step"?"#60a5fa":"#64748b",borderBottom:mode==="step"?"2px solid #3b82f6":"2px solid transparent"}}>{"\u041F\u043E \u0448\u0430\u0433\u0443 \u0441\u0435\u0442\u043A\u0438"}</button>
+        </div>
+
+        <div style={{background:"#111827",border:"1px solid #1e293b",borderRadius:16,padding:24,marginBottom:24}}>
+          <div style={{display:"flex",flexWrap:"wrap",gap:16,marginBottom:16}}>
+            <div style={{flex:"1 1 180px",minWidth:140}}>
+              <div style={{fontSize:12,color:"#94a3b8",marginBottom:6,display:"flex",alignItems:"center"}}>{"\u0418\u043D\u0441\u0442\u0440\u0443\u043C\u0435\u043D\u0442"}<TipComp text={"\u0422\u043E\u0440\u0433\u043E\u0432\u0430\u044F \u043F\u0430\u0440\u0430. \u041E\u0442 \u0438\u043D\u0441\u0442\u0440\u0443\u043C\u0435\u043D\u0442\u0430 \u0437\u0430\u0432\u0438\u0441\u0438\u0442 \u0441\u0442\u043E\u0438\u043C\u043E\u0441\u0442\u044C \u043F\u0438\u043F\u0441\u0430."}/></div>
+              <select value={instrument} onChange={function(e){setInstrument(e.target.value)}} style={Object.assign({},inpSt(false),{cursor:"pointer",appearance:"auto"})}>{Object.keys(INST_DATA).map(function(k){return<option key={k} value={k}>{k}</option>})}</select>
+            </div>
+            <div style={{flex:"1 1 180px",minWidth:140}}>
+              <div style={{fontSize:12,color:"#94a3b8",marginBottom:6,display:"flex",alignItems:"center"}}>{"\u0426\u0435\u043D\u0430"}<TipComp text={"\u0422\u0435\u043A\u0443\u0449\u0430\u044F \u0446\u0435\u043D\u0430 \u0438\u0437 MT5. \u041C\u0430\u043A\u0441. "+(instD?instD.dec:2)+" \u0437\u043D\u0430\u043A\u043E\u0432 \u043F\u043E\u0441\u043B\u0435 \u0442\u043E\u0447\u043A\u0438."}/></div>
+              <input type="text" inputMode="decimal" value={priceIn} onChange={handlePrice} style={inpSt(pErr||priceErr)}/>
+              {pErr&&<div style={{color:"#ef4444",fontSize:11,marginTop:4}}>{pErr}</div>}
+              {priceErr&&<div style={{color:"#ef4444",fontSize:11,marginTop:4}}>{priceErr}</div>}
+              {!priceErr&&pWarn&&<div style={{color:"#f59e0b",fontSize:11,marginTop:4}}>{pWarn}</div>}
+            </div>
+            <div style={{flex:"1 1 180px",minWidth:140}}>
+              <div style={{fontSize:12,color:"#94a3b8",marginBottom:6,display:"flex",alignItems:"center"}}>{"\u0414\u0435\u043F\u043E\u0437\u0438\u0442"}<TipComp text={"\u0421\u0443\u043C\u043C\u0430 \u043D\u0430 \u0441\u0447\u0451\u0442\u0435 (\u0432 \u0434\u043E\u043B\u043B\u0430\u0440\u0430\u0445 \u0438\u043B\u0438 \u0434\u0440\u0443\u0433\u043E\u0439 \u0432\u0430\u043B\u044E\u0442\u0435 \u0441\u0447\u0451\u0442\u0430)."}/></div>
+              <input type="text" inputMode="numeric" value={depoIn} onChange={function(e){setDepoIn(e.target.value);var v=parseFloat(e.target.value);if(!isNaN(v))setDeposit(v)}} style={inpSt(depErr)}/>
+              {depErr&&<div style={{color:"#ef4444",fontSize:11,marginTop:4}}>{depErr}</div>}
+            </div>
+            {mode==="step"?(
+              <div style={{flex:"1 1 180px",minWidth:140}}>
+                <div style={{fontSize:12,color:"#94a3b8",marginBottom:6,display:"flex",alignItems:"center"}}>{"\u0428\u0430\u0433 \u0441\u0435\u0442\u043A\u0438, \u043F\u0438\u043F\u0441\u044B"}<TipComp text={"\u0420\u0430\u0441\u0441\u0442\u043E\u044F\u043D\u0438\u0435 \u043C\u0435\u0436\u0434\u0443 \u043E\u0440\u0434\u0435\u0440\u0430\u043C\u0438. 1 \u043F\u0438\u043F\u0441 = "+(instD?instD.pl:"0.0001")+" \u0446\u0435\u043D\u044B."}/></div>
+                <input type="text" inputMode="numeric" value={stepIn} onChange={function(e){setStepIn(e.target.value);var v=parseInt(e.target.value);if(!isNaN(v)&&v>=0)setStep(v)}} style={inpSt(stpErr)}/>
+                {stpErr&&<div style={{color:"#ef4444",fontSize:11,marginTop:4}}>{stpErr}</div>}
+              </div>
+            ):(
+              <div style={{flex:"1 1 180px",minWidth:140}}>
+                <div style={{fontSize:12,color:"#94a3b8",marginBottom:6,display:"flex",alignItems:"center"}}>{"\u0420\u0430\u0441\u0441\u0442\u043E\u044F\u043D\u0438\u0435 \u0434\u043E \u0441\u0442\u043E\u043F\u0430, \u043F\u0438\u043F\u0441\u044B"}<TipComp text={"\u0416\u0435\u043B\u0430\u0435\u043C\u043E\u0435 \u0440\u0430\u0441\u0441\u0442\u043E\u044F\u043D\u0438\u0435 \u0434\u043E \u0441\u0442\u043E\u043F-\u043B\u043E\u0441\u0441\u0430. \u0421\u0438\u0441\u0442\u0435\u043C\u0430 \u0440\u0430\u0441\u0441\u0447\u0438\u0442\u0430\u0435\u0442 \u0448\u0430\u0433 \u0438 \u043A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E \u043F\u043E\u0437\u0438\u0446\u0438\u0439."}/></div>
+                <input type="text" inputMode="numeric" value={stopIn} onChange={function(e){setStopIn(e.target.value);var v=parseInt(e.target.value);if(!isNaN(v)&&v>=0)setStopDist(v)}} style={inpSt(sdErr)}/>
+                {sdErr&&<div style={{color:"#ef4444",fontSize:11,marginTop:4}}>{sdErr}</div>}
+              </div>
+            )}
+          </div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:16,alignItems:"center"}}>
+            <div style={{display:"flex",gap:4,background:"#0f172a",borderRadius:8,padding:3}}>
+              <button onClick={function(){setDirection("buy")}} style={{padding:"8px 20px",borderRadius:6,border:"none",cursor:"pointer",fontSize:14,fontWeight:600,background:direction==="buy"?"#10b981":"transparent",color:direction==="buy"?"#fff":"#64748b",display:"flex",alignItems:"center",gap:6}}>
+                <span style={{fontSize:11}}>{"\u25B2"}</span> BUY
+              </button>
+              <button onClick={function(){setDirection("sell")}} style={{padding:"8px 20px",borderRadius:6,border:"none",cursor:"pointer",fontSize:14,fontWeight:600,background:direction==="sell"?"#ef4444":"transparent",color:direction==="sell"?"#fff":"#64748b",display:"flex",alignItems:"center",gap:6}}>
+                <span style={{fontSize:11}}>{"\u25BC"}</span> SELL
+              </button>
+            </div>
+            <div style={{background:"rgba(59,130,246,.08)",borderRadius:8,padding:"8px 16px",fontSize:14,color:"#94a3b8"}}>
+              {"\u0420\u0438\u0441\u043A \u043D\u0430 \u0441\u0434\u0435\u043B\u043A\u0443: "}<span style={{color:"#60a5fa",fontWeight:600}}>1%</span>{" = "}<span style={{color:"#e2e8f0",fontWeight:600}}>{"$"+fM(riskAmount)}</span>
+            </div>
+          </div>
+        </div>
+
+        {mode==="stopDist"&&resultSD&&(hasBelow||hasAbove)&&(
+          <div style={{marginBottom:20}}>
+            <div style={{display:"flex",gap:4,background:"#111827",borderRadius:10,padding:3,marginBottom:hasAbove?0:16,border:"1px solid #1e293b"}}>
+              <button onClick={function(){if(hasBelow){setSelVar("below");setShowCount(0)}}} style={{flex:1,padding:"10px 16px",borderRadius:7,border:"none",cursor:hasBelow?"pointer":"default",fontSize:13,fontWeight:600,background:(selVar==="below"&&hasBelow)?"rgba(59,130,246,.12)":"transparent",color:!hasBelow?"#334155":(selVar==="below"?"#60a5fa":"#94a3b8"),borderBottom:(selVar==="below"&&hasBelow)?"2px solid #3b82f6":"2px solid transparent",opacity:hasBelow?1:0.4}}>
+                {"\u0412\u0430\u0440\u0438\u0430\u043D\u0442 \u0410 \u2014 \u0443\u0431\u044B\u0442\u043E\u043A \u043C\u0435\u043D\u044C\u0448\u0435 1%"+(hasBelow?" ($"+fM(hasBelow.loss)+")":"")}
+              </button>
+              <button onClick={function(){if(hasAbove){setSelVar("above");setShowCount(0)}}} style={{flex:1,padding:"10px 16px",borderRadius:7,border:"none",cursor:hasAbove?"pointer":"default",fontSize:13,fontWeight:600,background:(selVar==="above"&&hasAbove)?"rgba(59,130,246,.12)":"transparent",color:!hasAbove?"#334155":(selVar==="above"?"#60a5fa":"#94a3b8"),borderBottom:(selVar==="above"&&hasAbove)?"2px solid #3b82f6":"2px solid transparent",opacity:hasAbove?1:0.4}}>
+                {"\u0412\u0430\u0440\u0438\u0430\u043D\u0442 \u0411 \u2014 \u0443\u0431\u044B\u0442\u043E\u043A \u0431\u043E\u043B\u044C\u0448\u0435 1%"+(hasAbove?" ($"+fM(hasAbove.loss)+")":"")}
+              </button>
+            </div>
+            {!hasAbove&&hasBelow&&<WarnBox type="info">{"\u041F\u0440\u0438 \u0442\u0430\u043A\u043E\u043C \u0440\u0430\u0441\u0441\u0442\u043E\u044F\u043D\u0438\u0438 \u0434\u043E \u0441\u0442\u043E\u043F\u0430 \u043D\u0435\u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E \u043D\u0430\u0431\u0440\u0430\u0442\u044C \u043E\u0431\u044A\u0451\u043C \u0434\u043B\u044F \u0443\u0431\u044B\u0442\u043A\u0430 \u0432 1%. \u0423\u0432\u0435\u043B\u0438\u0447\u044C\u0442\u0435 \u0440\u0430\u0441\u0441\u0442\u043E\u044F\u043D\u0438\u0435, \u0435\u0441\u043B\u0438 \u043D\u0443\u0436\u0435\u043D \u0441\u0442\u043E\u043F \u0440\u043E\u0432\u043D\u043E \u0432 1%."}</WarnBox>}
+          </div>
+        )}
+
+        {warns.map(function(w,i){return<WarnBox key={i} type={w.t}>{w.m}</WarnBox>})}
+
+        {showResults&&(
+          <div>
+            <div className="cards-wrap">
+              <SCard label={"\u041F\u043E\u0437\u0438\u0446\u0438\u0439 \u0434\u043E \u0441\u0442\u043E\u043F\u0430"} value={cardData.nPos} sub={cardData.nPos>15?"\u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u043C\u0443\u043B\u044C\u0442\u0438\u043F\u043B\u0438\u043A\u0430\u0442\u043E\u0440":"\u0444\u0438\u043A\u0441\u0438\u0440\u043E\u0432\u0430\u043D\u043D\u0430\u044F \u043B\u0435\u0441\u0442\u043D\u0438\u0446\u0430"}/>
+              <SCard label={"\u0428\u0430\u0433 \u0441\u0435\u0442\u043A\u0438"} value={cardData.step+" "+pw(cardData.step)}/>
+              <SCard label={"\u0420\u0430\u0441\u0441\u0442\u043E\u044F\u043D\u0438\u0435 \u0434\u043E \u0441\u0442\u043E\u043F\u0430"} value={cardData.aDist+" "+pw(cardData.aDist)} sub={fP(price)+" \u2192 "+fP(result.rows[stopPos].pl)}/>
+              <SCard label={"\u041E\u0431\u0449\u0438\u0439 \u043B\u043E\u0442\u0430\u0436"} value={cardData.cLot.toFixed(2)}/>
+              <div className="loss-card">
+                <div style={{background:"#111827",border:"1px solid #1e293b",borderRadius:12,padding:"14px 16px"}}>
+                  <div style={{fontSize:11,color:"#64748b",marginBottom:5,textTransform:"uppercase",letterSpacing:0.8}}>{"\u0423\u0431\u044B\u0442\u043E\u043A / \u041F\u0440\u043E\u0441\u0430\u0434\u043A\u0430"}</div>
+                  <div style={{fontSize:22,fontWeight:700,color:"#ef4444",fontVariantNumeric:"tabular-nums",lineHeight:1.2}}>{"$"+fM(cardData.loss)+" / "+cardData.rPct.toFixed(2)+"%"}</div>
+                </div>
+              </div>
+            </div>
+
+            {Math.abs(cardData.loss-riskAmount)>0.5&&(
+              <div style={{fontSize:12,color:"#94a3b8",marginBottom:16,padding:"8px 14px",background:"rgba(245,158,11,.06)",borderRadius:8}}>
+                {"\u0424\u0430\u043A\u0442\u0438\u0447\u0435\u0441\u043A\u0438\u0439 \u0443\u0431\u044B\u0442\u043E\u043A: $"+fM(cardData.loss)+" (\u0440\u0438\u0441\u043A: $"+fM(riskAmount)+"). \u0420\u0430\u0437\u043D\u0438\u0446\u0430 \u0438\u0437-\u0437\u0430 \u043E\u043A\u0440\u0443\u0433\u043B\u0435\u043D\u0438\u044F \u043B\u043E\u0442\u043E\u0432 \u0434\u043E 0.01."}
+              </div>
+            )}
+
+            <div style={{background:"#111827",border:"1px solid #1e293b",borderRadius:16,padding:"20px 16px",marginBottom:24}}>
+              <div style={{fontSize:13,color:"#64748b",marginBottom:12}}>{"\u041D\u0430\u0440\u0430\u0441\u0442\u0430\u043D\u0438\u0435 \u0443\u0431\u044B\u0442\u043A\u0430 \u043F\u043E \u043F\u043E\u0437\u0438\u0446\u0438\u044F\u043C"}</div>
+              <ChartSVG positions={result.rows} stopIdx={stopPos} deposit={deposit}/>
+            </div>
+
+            <div style={{marginBottom:20}}>
+              <button onClick={function(){setShowHelp(!showHelp)}} style={{background:"none",border:"none",color:"#64748b",cursor:"pointer",fontSize:13,padding:0,textDecoration:"underline",textUnderlineOffset:3}}>{showHelp?"\u25BE \u0421\u043A\u0440\u044B\u0442\u044C \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0443":"\u25B8 \u041A\u0430\u043A \u0447\u0438\u0442\u0430\u0442\u044C \u0440\u0435\u0437\u0443\u043B\u044C\u0442\u0430\u0442\u044B?"}</button>
+              {showHelp&&<div style={{marginTop:10,padding:"14px 18px",background:"rgba(59,130,246,.05)",borderRadius:10,fontSize:13,color:"#94a3b8",lineHeight:1.7}}>{"\u0422\u0430\u0431\u043B\u0438\u0446\u0430 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442 \u0447\u0442\u043E \u043F\u0440\u043E\u0438\u0437\u043E\u0439\u0434\u0451\u0442, \u0435\u0441\u043B\u0438 \u0446\u0435\u043D\u0430 \u0431\u0443\u0434\u0435\u0442 \u0434\u0432\u0438\u0433\u0430\u0442\u044C\u0441\u044F \u043F\u0440\u043E\u0442\u0438\u0432 \u0432\u0430\u0448\u0435\u0439 \u043F\u043E\u0437\u0438\u0446\u0438\u0438. \u041A\u0430\u0436\u0434\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430 \u2014 \u043D\u043E\u0432\u044B\u0439 \u043E\u0440\u0434\u0435\u0440 \u0441\u0435\u0442\u043A\u0438. \u041A\u0440\u0430\u0441\u043D\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430 \u2014 \u0443\u0440\u043E\u0432\u0435\u043D\u044C, \u043D\u0430 \u043A\u043E\u0442\u043E\u0440\u043E\u043C \u0443\u0431\u044B\u0442\u043E\u043A \u0434\u043E\u0441\u0442\u0438\u0433\u043D\u0435\u0442 1% \u043E\u0442 \u0434\u0435\u043F\u043E\u0437\u0438\u0442\u0430. \u0421\u0442\u0440\u043E\u043A\u0438 \u043F\u043E\u0441\u043B\u0435 \u043D\u0435\u0451 \u0437\u0430\u0442\u0435\u043C\u043D\u0435\u043D\u044B \u2014 \u0441\u043E\u0432\u0435\u0442\u043D\u0438\u043A \u0437\u0430\u043A\u0440\u043E\u0435\u0442 \u0442\u043E\u0440\u0433\u043E\u0432\u043B\u044E \u043F\u043E \u043B\u0438\u043C\u0438\u0442\u0443 \u0443\u0431\u044B\u0442\u043A\u0430 \u0432 \u0441\u0434\u0435\u043B\u043A\u0435 (1%) \u0440\u0430\u043D\u044C\u0448\u0435. \u00AB\u0421\u0440\u0435\u0434\u043D\u044F\u044F\u00BB \u2014 \u0441\u0440\u0435\u0434\u043D\u0435\u0432\u0437\u0432\u0435\u0448\u0435\u043D\u043D\u0430\u044F \u0446\u0435\u043D\u0430 \u0432\u0441\u0435\u0445 \u043F\u043E\u0437\u0438\u0446\u0438\u0439. \u00AB\u0414\u043E \u0441\u0440\u0435\u0434\u043D\u0435\u0439\u00BB \u2014 \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043F\u0438\u043F\u0441\u043E\u0432 \u0446\u0435\u043D\u0435 \u043D\u0443\u0436\u043D\u043E \u043F\u0440\u043E\u0439\u0442\u0438 \u043E\u0431\u0440\u0430\u0442\u043D\u043E \u0434\u043B\u044F \u0431\u0435\u0437\u0443\u0431\u044B\u0442\u043A\u0430."}</div>}
+            </div>
+
+            <div style={{background:"#111827",border:"1px solid #1e293b",borderRadius:16,overflow:"hidden"}}>
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,fontVariantNumeric:"tabular-nums"}}>
+                  <thead><tr style={{position:"sticky",top:0,zIndex:10,background:"#0f172a"}}>
+                    {["\u2116","\u041B\u043E\u0442","\u041E\u0431\u0449\u0438\u0439 \u043B\u043E\u0442\u0430\u0436","\u0426\u0435\u043D\u0430","\u0423\u0431\u044B\u0442\u043E\u043A $","\u03A3 \u0423\u0431\u044B\u0442\u043E\u043A $","\u041F\u0440\u043E\u0441\u0430\u0434\u043A\u0430 %","\u0421\u0440\u0435\u0434\u043D\u044F\u044F","\u0414\u043E \u0441\u0440\u0435\u0434\u043D."].map(function(h,i){
+                      return<th key={i} style={{padding:"12px 10px",textAlign:i===0?"center":"right",color:"#64748b",fontWeight:600,fontSize:11,textTransform:"uppercase",letterSpacing:0.5,borderBottom:"2px solid #1e293b",whiteSpace:"nowrap"}}>{h}</th>
+                    })}
+                  </tr></thead>
+                  <tbody>{displayPos.map(function(p,idx){
+                    var isStop=idx===stopPos,after=stopPos>=0&&idx>stopPos,isGE=groupBounds[p.n]||false;
+                    var rc=p.rPct<0.3?"#10b981":p.rPct<0.7?"#f59e0b":"#ef4444";
+                    var bg=isStop?"rgba(239,68,68,.1)":idx%2===0?"#111827":"#0f172a";
+                    return<tr key={p.n} style={{background:bg,opacity:after?0.35:1,borderLeft:isStop?"3px solid #ef4444":"3px solid transparent",borderBottom:isGE&&!after?"2px solid #334155":"1px solid #1a2332"}}
+                      onMouseEnter={function(e){if(!after)e.currentTarget.style.background="rgba(59,130,246,.06)"}}
+                      onMouseLeave={function(e){e.currentTarget.style.background=bg}}>
+                      <td style={{padding:"9px 10px",textAlign:"center",color:p.isMult?"#f59e0b":"#64748b",fontWeight:600}}>{p.n}{p.n===16&&<span style={{fontSize:9,color:"#f59e0b"}}>{" \u00D7"}</span>}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right"}}>{p.lot.toFixed(2)}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right",fontWeight:600}}>{p.cLot.toFixed(2)}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right",color:"#94a3b8"}}>{fP(p.pl)}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right"}}>{p.loss>0?"-"+fM(p.loss):"0"}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right",fontWeight:600,color:isStop?"#ef4444":"#e2e8f0"}}>{p.loss>0?"-$"+fM(p.loss):"$0"}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right",color:rc,fontWeight:600}}>{p.rPct.toFixed(2)+"%"}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right",color:"#94a3b8"}}>{fP(p.avg)}</td>
+                      <td style={{padding:"9px 10px",textAlign:"right",color:"#64748b"}}>{p.dAvg}</td>
+                    </tr>
+                  })}</tbody>
+                </table>
+              </div>
+              {nextLabel&&<div style={{textAlign:"center",padding:12,borderTop:"1px solid #1e293b"}}><button onClick={function(){setShowCount(showCount+1)}} style={{background:"none",border:"1px solid #334155",borderRadius:8,padding:"8px 24px",color:"#64748b",cursor:"pointer",fontSize:13}}>{"\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C "+nextLabel+" \u043F\u043E\u0437\u0438\u0446\u0438\u0439"}</button></div>}
+            </div>
+            <div style={{fontSize:11,color:"#475569",marginTop:16,textAlign:"center"}}>{"\u0420\u0430\u0441\u0447\u0451\u0442 \u043D\u0435 \u0443\u0447\u0438\u0442\u044B\u0432\u0430\u0435\u0442 \u0441\u043F\u0440\u0435\u0434 \u0438 \u043A\u043E\u043C\u0438\u0441\u0441\u0438\u044E \u0431\u0440\u043E\u043A\u0435\u0440\u0430. \u0424\u0430\u043A\u0442\u0438\u0447\u0435\u0441\u043A\u0438\u0439 \u0443\u0431\u044B\u0442\u043E\u043A \u043C\u043E\u0436\u0435\u0442 \u0431\u044B\u0442\u044C \u043D\u0435\u043C\u043D\u043E\u0433\u043E \u0431\u043E\u043B\u044C\u0448\u0435."}</div>
+          </div>
+        )}
+        {!showResults&&!depErr&&!pErr&&!priceErr&&<div style={{textAlign:"center",padding:40,color:"#64748b"}}>{"\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0434\u0430\u043D\u043D\u044B\u0435 \u0434\u043B\u044F \u0440\u0430\u0441\u0447\u0451\u0442\u0430"}</div>}
+      </div>
+      <div style={{textAlign:"center",padding:"24px 20px",borderTop:"1px solid #1e293b",fontSize:12,color:"#475569",marginTop:40}}>{"MiniGun Dealing \u00A9 2025 \u00B7 "}<a href="https://t.me/OppenTrader" target="_blank" rel="noreferrer" style={{color:"#60a5fa",textDecoration:"none"}}>@OppenTrader</a></div>
+    </div>
+  );
+}
+
+ReactDOM.render(React.createElement(App), document.getElementById("root"));
+</script>
+</body>
+</html>
