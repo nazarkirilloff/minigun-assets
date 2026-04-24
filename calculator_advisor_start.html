@@ -31,14 +31,17 @@ var ID={
 "USD/CAD":{price:1.38600,ps:.00001,cs:100000,dec:5,pl:"0.00001",inv:true},
 "USD/JPY":{price:149.850,ps:.001,cs:100000,dec:3,pl:"0.001",inv:true},
 "Gold (XAU/USD)":{price:4500.00,ps:.01,cs:100,dec:2,pl:"0.01",inv:false},
-"Oil (Brent)":{price:85.500,ps:.001,cs:1000,dec:3,pl:"0.001",inv:false}
+"Oil (Brent)":{price:85.500,ps:.001,cs:1000,dec:3,pl:"0.001",inv:false},
+"BTCUSD":{price:104000.00,ps:.01,cs:1,dec:2,pl:"0.01",inv:false,crypto:true},
+"ETHUSD":{price:3500.00,ps:.01,cs:1,dec:2,pl:"0.01",inv:false,crypto:true},
+"SOLUSD":{price:180.00,ps:.01,cs:1,dec:2,pl:"0.01",inv:false,crypto:true}
 };
-var PR={"EUR/USD":[.5,2.5],"GBP/USD":[.5,3],"AUD/USD":[.3,1.5],"USD/CAD":[.8,2],"USD/JPY":[50,300],"Gold (XAU/USD)":[500,10000],"Oil (Brent)":[10,200]};
+var PR={"EUR/USD":[.5,2.5],"GBP/USD":[.5,3],"AUD/USD":[.3,1.5],"USD/CAD":[.8,2],"USD/JPY":[50,300],"Gold (XAU/USD)":[500,10000],"Oil (Brent)":[10,200],"BTCUSD":[10000,250000],"ETHUSD":[500,15000],"SOLUSD":[10,1000]};
 var LL=(function(){var l=FLOTS.slice(),p=l[l.length-1];for(var i=l.length;i<MXP;i++){p=Math.round(p*MULT*100)/100;if(p<.01)p=.01;l.push(p)}return l})();
 
-function gPV(inst,pr){var d=ID[inst];if(!d)return 1;return d.inv?d.cs*d.ps/pr:d.cs*d.ps}
-function cG(inst,pr,dep,stp,dir){
-var pv=gPV(inst,pr),d=ID[inst],psz=d?d.ps:.00001,sg=dir==="sell"?1:-1,ra=dep*RPCT,rows=[],cL=0,si=-1;
+function gPV(inst,pr,csOvr){var d=ID[inst];if(!d)return 1;var cs=csOvr||d.cs;return d.inv?cs*d.ps/pr:cs*d.ps}
+function cG(inst,pr,dep,stp,dir,csOvr){
+var pv=gPV(inst,pr,csOvr),d=ID[inst],psz=d?d.ps:.00001,sg=dir==="sell"?1:-1,ra=dep*RPCT,rows=[],cL=0,si=-1;
 for(var i=0;i<MXP;i++){var lot=LL[i];cL=Math.round((cL+lot)*100)/100;var dst=i*stp,pl=pr+sg*dst*psz,loss=0;
 for(var j=0;j<=i;j++)loss+=LL[j]*(i-j)*stp*pv;
 var wS=0,lS=0;for(var j2=0;j2<=i;j2++){wS+=(pr+sg*j2*stp*psz)*LL[j2];lS+=LL[j2]}
@@ -47,10 +50,10 @@ rows.push({n:i+1,lot:lot,cLot:cL,pl:pl,dist:dst,loss:loss,rPct:loss/dep*100,avg:
 if(si===-1&&loss>=ra)si=i}
 return{rows:rows,stopIdx:si,riskAmt:ra}}
 
-function fO(inst,pr,dep,sD,dir){
+function fO(inst,pr,dep,sD,dir,csOvr){
 var ra=dep*RPCT,bel=null,abv=null;
 for(var n=2;n<=MXP;n++){var sp=Math.floor(sD/(n-1));if(sp<1)break;
-var res=cG(inst,pr,dep,sp,dir);if(!res||n-1>=res.rows.length)continue;var p=res.rows[n-1];
+var res=cG(inst,pr,dep,sp,dir,csOvr);if(!res||n-1>=res.rows.length)continue;var p=res.rows[n-1];
 var v={nPos:n,step:sp,loss:p.loss,rPct:p.rPct,aDist:sp*(n-1),cLot:p.cLot,result:res};
 if(p.loss<ra){if(!bel||p.loss>bel.loss)bel=v}else{if(!abv||p.loss<abv.loss)abv=v;break}}
 return{below:bel,above:abv}}
@@ -104,10 +107,12 @@ var _di=us(String(sv?sv.deposit||5000:5000)),dIn=_di[0],sDI=_di[1];
 var _si=us(String(sv?sv.step||50:50)),sIn=_si[0],sSI=_si[1];
 var _sti=us(String(sv?sv.stopDist||300:300)),stIn=_sti[0],sSTI=_sti[1];
 var _pe=us(""),pErr=_pe[0],sPE=_pe[1];
+var _cs=us(sv?sv.cSize||1:1),cSize=_cs[0],sCS=_cs[1];
 var iD=ID[inst];
+var isCrypto=iD&&iD.crypto;
 
 ue(function(){if(iD){sP(iD.price);sPI(iD.price.toFixed(iD.dec));sPE("")}},[inst]);
-ue(function(){sLS({mode:mode,instrument:inst,price:price,deposit:dep,step:step,stopDist:sDist,direction:dir})},[mode,inst,price,dep,step,sDist,dir]);
+ue(function(){sLS({mode:mode,instrument:inst,price:price,deposit:dep,step:step,stopDist:sDist,direction:dir,cSize:cSize})},[mode,inst,price,dep,step,sDist,dir,cSize]);
 
 var dE="";if(dep<10)dE="\u041C\u0438\u043D\u0438\u043C\u0443\u043C $10";if(dep>1e7)dE="\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C $10 000 000";
 var stE="";if(mode==="step"&&step<1)stE="\u041C\u0438\u043D\u0438\u043C\u0443\u043C 1 \u043F\u0438\u043F\u0441";if(mode==="step"&&step>10000)stE="\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C 10 000";
@@ -115,8 +120,9 @@ var sdE="";if(mode==="stopDist"&&sDist<2)sdE="\u041C\u0438\u043D\u0438\u043C\u04
 var pE2="";if(price<=0)pE2="\u0426\u0435\u043D\u0430 > 0";
 var pW="";var rn=PR[inst];if(rn&&price>0&&(price<rn[0]||price>rn[1]))pW="\u041D\u0435\u0442\u0438\u043F\u0438\u0447\u043D\u0430\u044F \u0446\u0435\u043D\u0430 \u0434\u043B\u044F "+inst;
 var cC=!dE&&!pE2&&!pErr&&price>0&&dep>=10;
-var rSt=null;if(cC&&mode==="step"&&!stE&&step>=1){try{rSt=cG(inst,price,dep,step,dir)}catch(e){}}
-var rSD=null;if(cC&&mode==="stopDist"&&!sdE&&sDist>=2){try{rSD=fO(inst,price,dep,sDist,dir)}catch(e){}}
+var csOvr=isCrypto?cSize:null;
+var rSt=null;if(cC&&mode==="step"&&!stE&&step>=1){try{rSt=cG(inst,price,dep,step,dir,csOvr)}catch(e){}}
+var rSD=null;if(cC&&mode==="stopDist"&&!sdE&&sDist>=2){try{rSD=fO(inst,price,dep,sDist,dir,csOvr)}catch(e){}}
 var aV=null;if(mode==="stopDist"&&rSD){if(selV==="below"&&rSD.below)aV=rSD.below;else if(selV==="above"&&rSD.above)aV=rSD.above;else if(rSD.below)aV=rSD.below;else if(rSD.above)aV=rSD.above}
 var res=null,sP2=-1;if(mode==="step"&&rSt){res=rSt;sP2=rSt.stopIdx}else if(aV){res=aV.result;sP2=aV.nPos-1}
 var rA=dep*RPCT;
@@ -153,6 +159,7 @@ h("div",{style:{display:"flex",flexWrap:"wrap",gap:16,marginBottom:16}},
 h("div",{style:fld},h("div",{style:lbl},"\u0418\u043D\u0441\u0442\u0440\u0443\u043C\u0435\u043D\u0442",h(Tip,{t:"\u0422\u043E\u0440\u0433\u043E\u0432\u0430\u044F \u043F\u0430\u0440\u0430. \u041E\u0442 \u0438\u043D\u0441\u0442\u0440\u0443\u043C\u0435\u043D\u0442\u0430 \u0437\u0430\u0432\u0438\u0441\u0438\u0442 \u0441\u0442\u043E\u0438\u043C\u043E\u0441\u0442\u044C \u043F\u0438\u043F\u0441\u0430."})),h("select",{value:inst,onChange:function(e){sI(e.target.value)},style:Object.assign({},iS(false),{cursor:"pointer",appearance:"auto"})},Object.keys(ID).map(function(k){return h("option",{key:k,value:k},k)}))),
 h("div",{style:fld},h("div",{style:lbl},"\u0426\u0435\u043D\u0430",h(Tip,{t:"\u0422\u0435\u043A\u0443\u0449\u0430\u044F \u0446\u0435\u043D\u0430 \u0438\u0437 MT5. \u041C\u0430\u043A\u0441. "+(iD?iD.dec:2)+" \u0437\u043D\u0430\u043A\u043E\u0432 \u043F\u043E\u0441\u043B\u0435 \u0442\u043E\u0447\u043A\u0438."})),h("input",{type:"text",inputMode:"decimal",value:pIn,onChange:hP,style:iS(pE2||pErr)}),pE2?h("div",{style:{color:"#ef4444",fontSize:11,marginTop:4}},pE2):null,pErr?h("div",{style:{color:"#ef4444",fontSize:11,marginTop:4}},pErr):null,!pErr&&pW?h("div",{style:{color:"#f59e0b",fontSize:11,marginTop:4}},pW):null),
 h("div",{style:fld},h("div",{style:lbl},"\u0414\u0435\u043F\u043E\u0437\u0438\u0442",h(Tip,{t:"\u0421\u0443\u043C\u043C\u0430 \u043D\u0430 \u0441\u0447\u0451\u0442\u0435 (\u0432 \u0434\u043E\u043B\u043B\u0430\u0440\u0430\u0445 \u0438\u043B\u0438 \u0434\u0440\u0443\u0433\u043E\u0439 \u0432\u0430\u043B\u044E\u0442\u0435)."})),h("input",{type:"text",inputMode:"numeric",value:dIn,onChange:function(e){sDI(e.target.value);var v=parseFloat(e.target.value);if(!isNaN(v))sD(v)},style:iS(dE)}),dE?h("div",{style:{color:"#ef4444",fontSize:11,marginTop:4}},dE):null),
+isCrypto?h("div",{style:fld},h("div",{style:lbl},"\u0420\u0430\u0437\u043C\u0435\u0440 \u043A\u043E\u043D\u0442\u0440\u0430\u043A\u0442\u0430",h(Tip,{t:"\u041A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E \u0435\u0434\u0438\u043D\u0438\u0446 \u043A\u0440\u0438\u043F\u0442\u043E\u0432\u0430\u043B\u044E\u0442\u044B \u0432 1 \u043B\u043E\u0442\u0435. \u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u0432 \u0441\u043F\u0435\u0446\u0438\u0444\u0438\u043A\u0430\u0446\u0438\u0438 \u0438\u043D\u0441\u0442\u0440\u0443\u043C\u0435\u043D\u0442\u0430 \u0432 MT5 (Contract Size)."})),h("select",{value:cSize,onChange:function(e){sCS(parseInt(e.target.value))},style:Object.assign({},iS(false),{cursor:"pointer",appearance:"auto"})},[1,10,100].map(function(v){return h("option",{key:v,value:v},v)}))):null,
 mode==="step"?h("div",{style:fld},h("div",{style:lbl},"\u0428\u0430\u0433 \u0441\u0435\u0442\u043A\u0438, \u043F\u0438\u043F\u0441\u044B",h(Tip,{t:"\u0420\u0430\u0441\u0441\u0442\u043E\u044F\u043D\u0438\u0435 \u043C\u0435\u0436\u0434\u0443 \u043E\u0440\u0434\u0435\u0440\u0430\u043C\u0438. 1 \u043F\u0438\u043F\u0441 = "+(iD?iD.pl:"0.00001")+" \u0446\u0435\u043D\u044B."})),h("input",{type:"text",inputMode:"numeric",value:sIn,onChange:function(e){sSI(e.target.value);var v=parseInt(e.target.value);if(!isNaN(v)&&v>=0)sS(v)},style:iS(stE)}),stE?h("div",{style:{color:"#ef4444",fontSize:11,marginTop:4}},stE):null):
 h("div",{style:fld},h("div",{style:lbl},"\u0420\u0430\u0441\u0441\u0442\u043E\u044F\u043D\u0438\u0435 \u0434\u043E \u0441\u0442\u043E\u043F\u0430, \u043F\u0438\u043F\u0441\u044B",h(Tip,{t:"\u0416\u0435\u043B\u0430\u0435\u043C\u043E\u0435 \u0440\u0430\u0441\u0441\u0442\u043E\u044F\u043D\u0438\u0435 \u0434\u043E \u0441\u0442\u043E\u043F-\u043B\u043E\u0441\u0441\u0430. \u0421\u0438\u0441\u0442\u0435\u043C\u0430 \u0440\u0430\u0441\u0441\u0447\u0438\u0442\u0430\u0435\u0442 \u0448\u0430\u0433 \u0438 \u043A\u043E\u043B\u0438\u0447\u0435\u0441\u0442\u0432\u043E \u043F\u043E\u0437\u0438\u0446\u0438\u0439."})),h("input",{type:"text",inputMode:"numeric",value:stIn,onChange:function(e){sSTI(e.target.value);var v=parseInt(e.target.value);if(!isNaN(v)&&v>=0)sSD(v)},style:iS(sdE)}),sdE?h("div",{style:{color:"#ef4444",fontSize:11,marginTop:4}},sdE):null)),
 // Buy/Sell + Risk
