@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MiniGun Advisor PRO — Калькулятор сетки</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* TT Norms slot — добавьте @font-face объявления здесь, когда будут файлы шрифта.
+   Пример:
+   @font-face{font-family:'TT Norms';src:url('fonts/TTNorms-Regular.woff2') format('woff2');font-weight:400;font-display:swap}
+   @font-face{font-family:'TT Norms';src:url('fonts/TTNorms-Medium.woff2') format('woff2');font-weight:500;font-display:swap}
+   @font-face{font-family:'TT Norms';src:url('fonts/TTNorms-Bold.woff2') format('woff2');font-weight:700;font-display:swap}
+*/
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{min-height:100%}
+body{font-family:'TT Norms','Manrope',-apple-system,BlinkMacSystemFont,system-ui,sans-serif;color:#e2e8f0;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;background:radial-gradient(ellipse 1100px 700px at 12% 8%,rgba(59,130,246,.10),transparent 55%),radial-gradient(ellipse 900px 600px at 88% 92%,rgba(6,182,212,.08),transparent 50%),radial-gradient(ellipse 700px 500px at 50% 60%,rgba(124,58,237,.04),transparent 60%),#0a0e17;background-attachment:fixed;letter-spacing:-0.005em}
+.tnum{font-variant-numeric:tabular-nums}
+.cards-wrap{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:24px}
+@media(max-width:700px){.stat-card{flex:1 1 100%}}
+select:focus,input:focus{border-color:#3b82f6!important;outline:none}
+::-webkit-scrollbar{height:6px;width:6px}
+::-webkit-scrollbar-track{background:#0f172a}
+::-webkit-scrollbar-thumb{background:#334155;border-radius:3px}
+.slider-wrap{position:relative;padding:42px 0 28px}
+.slider-track{position:relative;height:8px;border-radius:4px;background:linear-gradient(to right,rgba(16,185,129,.18) 0%,rgba(16,185,129,.18) 18.4%,rgba(245,158,11,.18) 18.4%,rgba(245,158,11,.18) 49%,rgba(239,68,68,.18) 49%,rgba(239,68,68,.18) 100%);overflow:hidden}
+.slider-fill{position:absolute;top:0;left:0;height:100%;border-radius:4px;transition:background-color .15s ease,box-shadow .15s ease}
+.slider-input{position:absolute;left:0;right:0;top:50px;width:100%;height:24px;background:transparent;appearance:none;-webkit-appearance:none;outline:none;cursor:pointer;margin:0;padding:0}
+.slider-input::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:#fff;cursor:grab;border:none;box-shadow:0 2px 12px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.1),0 0 24px var(--thumb-glow,rgba(59,130,246,.4));transition:transform .12s ease}
+.slider-input::-webkit-slider-thumb:hover{transform:scale(1.08)}
+.slider-input::-webkit-slider-thumb:active{cursor:grabbing;transform:scale(1.12)}
+.slider-input::-moz-range-thumb{width:22px;height:22px;border:none;border-radius:50%;background:#fff;cursor:grab;box-shadow:0 2px 12px rgba(0,0,0,.6),0 0 24px var(--thumb-glow,rgba(59,130,246,.4))}
+.slider-tip{position:absolute;top:0;transform:translateX(-50%);padding:7px 16px;background:#0d1117;border:1px solid;border-radius:10px;font-size:18px;font-weight:700;letter-spacing:-0.02em;font-variant-numeric:tabular-nums;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.6);transition:left .08s linear,color .15s ease,border-color .15s ease;pointer-events:none}
+.slider-tip::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:7px solid currentColor}
+.slider-ticks{display:flex;justify-content:space-between;margin-top:14px;font-size:11px;color:#475569;font-weight:500;font-variant-numeric:tabular-nums}
+.tab-row{display:flex;gap:6px;background:rgba(15,23,42,.5);border:1px solid #1e293b;border-radius:14px;padding:5px;margin-bottom:24px;backdrop-filter:blur(12px)}
+.tab-btn{flex:1 1 150px;padding:13px 18px;border-radius:10px;border:none;cursor:pointer;font-size:13.5px;font-weight:600;background:transparent;color:#64748b;letter-spacing:-0.01em;transition:all .18s ease;font-family:inherit}
+.tab-btn:hover{color:#94a3b8;background:rgba(30,41,59,.4)}
+.tab-btn.active{background:linear-gradient(135deg,rgba(59,130,246,.18),rgba(6,182,212,.10));color:#e2e8f0;box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+.preset-pills{display:flex;gap:8px;flex-wrap:wrap}
+.preset-pill{padding:10px 18px;border-radius:999px;border:1px solid #1e293b;background:rgba(17,24,39,.6);color:#94a3b8;cursor:pointer;font-size:13px;font-weight:600;letter-spacing:-0.005em;transition:all .18s ease;font-family:inherit;display:flex;align-items:center;gap:9px;backdrop-filter:blur(8px)}
+.preset-pill:hover{border-color:#334155;color:#cbd5e1;background:rgba(30,41,59,.5)}
+.preset-pill.active{background:linear-gradient(135deg,rgba(59,130,246,.18),rgba(6,182,212,.10));border-color:#3b82f6;color:#e2e8f0;box-shadow:0 0 0 4px rgba(59,130,246,.08),0 8px 24px rgba(59,130,246,.12)}
+.pill-count{font-size:11px;color:#475569;font-weight:600;padding:2px 8px;background:rgba(15,23,42,.6);border-radius:999px;font-variant-numeric:tabular-nums}
+.preset-pill.active .pill-count{color:#60a5fa;background:rgba(59,130,246,.15)}
+.preset-expanded{margin-top:16px;background:linear-gradient(180deg,rgba(17,24,39,.5),rgba(13,17,23,.3));border:1px solid #1e293b;border-radius:16px;padding:22px;animation:fadeUp .35s cubic-bezier(.4,0,.2,1)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.preset-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:10px;flex-wrap:wrap}
+.preset-name{font-size:20px;font-weight:700;letter-spacing:-0.025em;color:#e2e8f0}
+.preset-tag{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#60a5fa;padding:5px 12px;background:rgba(59,130,246,.10);border:1px solid rgba(59,130,246,.25);border-radius:999px}
+.preset-desc{color:#cbd5e1;font-size:15px;line-height:1.6;margin-bottom:18px;letter-spacing:-0.005em;max-width:720px}
+.preset-metrics{display:flex;gap:56px;flex-wrap:wrap;padding-top:18px;border-top:1px solid rgba(30,41,59,.5);justify-content:center}
+.preset-metrics > div{text-align:center}
+.preset-metric-label{font-size:12px;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:5px}
+.preset-metric-value{font-size:22px;font-weight:700;letter-spacing:-0.025em;font-variant-numeric:tabular-nums;color:#e2e8f0}
+.dir-frame{flex:0 0 auto;background:linear-gradient(180deg,rgba(15,23,42,.6),rgba(13,17,23,.4));border:1px solid #1e293b;border-radius:14px;padding:18px 20px;display:flex;flex-direction:column;align-items:center;gap:0;min-width:220px}
+.dir-title{font-size:12.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:0}
+.dir-buttons{display:flex;gap:5px;background:#0a0e17;border:1px solid #1e293b;border-radius:10px;padding:4px;margin-top:auto;margin-bottom:auto}
+.dir-btn{padding:11px 28px;border-radius:7px;border:none;cursor:pointer;font-size:14px;font-weight:700;letter-spacing:.05em;font-family:inherit;display:flex;align-items:center;gap:7px;background:transparent;color:#475569;transition:all .15s ease}
+.dir-btn:hover:not(.active){color:#94a3b8}
+.dir-btn.buy.active{background:linear-gradient(180deg,#10b981,#059669);color:#fff;box-shadow:0 4px 12px rgba(16,185,129,.3),inset 0 1px 0 rgba(255,255,255,.15)}
+.dir-btn.sell.active{background:linear-gradient(180deg,#ef4444,#dc2626);color:#fff;box-shadow:0 4px 12px rgba(239,68,68,.3),inset 0 1px 0 rgba(255,255,255,.15)}
+.grp-row{display:grid;grid-template-columns:100px 1fr 1fr;gap:14px;align-items:center;margin-bottom:10px}
+@media(max-width:520px){.grp-row{grid-template-columns:80px 1fr 1fr;gap:8px}}
+.grp-label{color:#cbd5e1;font-size:13.5px;font-weight:600;letter-spacing:-0.005em}
+.grp-suffix{font-size:12px;color:#64748b}
+.p-input{background:#0a0e17;border:1px solid #1e293b;border-radius:10px;padding:11px 14px;color:#e2e8f0;font-size:14.5px;font-family:inherit;font-variant-numeric:tabular-nums;width:100%;outline:none;box-sizing:border-box;transition:all .15s ease;letter-spacing:-0.005em}
+.p-input:hover{border-color:#334155}
+.p-input:focus{border-color:#3b82f6;background:#0d1320;box-shadow:0 0 0 4px rgba(59,130,246,.08)}
+.p-input.err{border-color:#ef4444}
+.p-card{background:linear-gradient(180deg,rgba(17,24,39,.6),rgba(13,17,23,.4));border:1px solid #1e293b;border-radius:18px;padding:24px;margin-bottom:20px;backdrop-filter:blur(12px)}
+.p-section-label{font-size:12.5px;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-bottom:14px;display:flex;align-items:center}
+.stat-card{background:linear-gradient(180deg,rgba(17,24,39,.7),rgba(13,17,23,.5));border:1px solid #1e293b;border-radius:14px;padding:18px 20px;flex:1 1 0;min-width:140px;backdrop-filter:blur(8px);transition:border-color .2s ease}
+.stat-card:hover{border-color:#334155}
+.stat-label{font-size:12px;color:#94a3b8;margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.stat-value{font-size:26px;font-weight:700;letter-spacing:-0.025em;line-height:1.15;font-variant-numeric:tabular-nums}
+.stat-sub{font-size:12.5px;color:#94a3b8;margin-top:6px;letter-spacing:-0.005em}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+</head>
+<body>
+<div id="root"></div>
+<script>
+var h=React.createElement,us=React.useState,ue=React.useEffect,uR=React.useRef;
+var MXP=100;
+var ID={"EUR/USD":{price:1.09540,ps:.00001,cs:100000,dec:5,pl:"0.00001",inv:false},"GBP/USD":{price:1.29430,ps:.00001,cs:100000,dec:5,pl:"0.00001",inv:false},"AUD/USD":{price:0.64250,ps:.00001,cs:100000,dec:5,pl:"0.00001",inv:false},"USD/CAD":{price:1.38600,ps:.00001,cs:100000,dec:5,pl:"0.00001",inv:true},"USD/JPY":{price:149.850,ps:.001,cs:100000,dec:3,pl:"0.001",inv:true},"Gold (XAU/USD)":{price:4500.00,ps:.01,cs:100,dec:2,pl:"0.01",inv:false},"Oil (Brent)":{price:85.500,ps:.001,cs:1000,dec:3,pl:"0.001",inv:false},"BTCUSD":{price:7500.00,ps:.01,cs:1,dec:2,pl:"0.01",inv:false,crypto:true},"ETHUSD":{price:2500.00,ps:.01,cs:1,dec:2,pl:"0.01",inv:false,crypto:true},"SOLUSD":{price:90.00,ps:.01,cs:1,dec:2,pl:"0.01",inv:false,crypto:true}};
+var PR={"EUR/USD":[.5,2.5],"GBP/USD":[.5,3],"AUD/USD":[.3,1.5],"USD/CAD":[.8,2],"USD/JPY":[50,300],"Gold (XAU/USD)":[500,10000],"Oil (Brent)":[10,200],"BTCUSD":[1000,250000],"ETHUSD":[100,15000],"SOLUSD":[5,1000]};
+var PRESETS=[
+{id:"standard",name:"Стандарт",tag:"MiniGun",desc:"Как в START. Обкатанная база Алексея, плавное наращивание в явных сериях и быстрый рост в мультипликаторной части. Подходит для большинства случаев на любых инструментах.",counts:[5,4,3,2,1],ratios:[1,2,3,4,5],mult:1.15,risk:1.0},
+{id:"conservative",name:"Консервативный",tag:"Защита",desc:"Длинная явная часть и мягкий множитель. Большая часть объёма набирается по плану до того, как начнёт работать ускорение. Подходит для дальних стопов и волатильных инструментов с резкими откатами.",counts:[10,8,6,4,2],ratios:[1,2,3,4,5],mult:1.10,risk:0.75},
+{id:"concentrated",name:"Концентрированный",tag:"Быстрый БУ",desc:"Равномерная плотность серий и более ощутимые лоты с самого старта. Выход в безубыток быстрее, чем в Стандарте. Подходит для коротких стопов и быстрых движений.",counts:[3,3,3,3,3],ratios:[1,2,3,4,5],mult:1.20,risk:1.0},
+{id:"progressive",name:"Прогрессивный",tag:"Фибоначчи",desc:"Геометрический рост лотов по золотому соотношению. Короткая явная часть, агрессивный разгон множителем. Меньше позиций, каждая весомее. Для опытных трейдеров с расчётом на сильную коррекцию.",counts:[2,2,2,2,2],ratios:[1,2,3,5,8],mult:1.25,risk:1.5},
+{id:"prop",name:"Пропный",tag:"Для пропов",desc:"Очень длинная явная часть и почти-плоский множитель. Цель — никогда не выйти за дневной лимит просадки даже на серии стопов подряд. Заточен под торговлю на пропах от 25k.",counts:[15,10,5,3,2],ratios:[1,2,3,4,5],mult:1.05,risk:0.5}
+];
+function aPreset(p,base){base=base||0.01;var g=p.counts.map(function(c,i){var l=Math.round(base*p.ratios[i]*100)/100;if(l<0.01)l=0.01;return{c:c,l:l}});return{groups:g,mult:p.mult,risk:p.risk}}
+function sumC(g){var s=0;for(var i=0;i<g.length;i++)s+=(parseInt(g[i].c)||0);return s}
+function bL(groups,mult){var L=[];for(var i=0;i<groups.length;i++){var c=parseInt(groups[i].c)||0,l=parseFloat(groups[i].l)||0.01;for(var k=0;k<c;k++)L.push(l)}if(L.length===0)return[0.01];var prev=L[L.length-1]||0.01;var m=parseFloat(mult)||1.0;while(L.length<MXP){if(m<=1.0)L.push(prev);else{prev=Math.round(prev*m*100)/100;if(prev<0.01)prev=0.01;L.push(prev)}}return L}
+function gPV(inst,pr,csOvr){var d=ID[inst];if(!d)return 1;if(d.crypto&&csOvr)return csOvr;var cs=d.cs;return d.inv?cs*d.ps/pr:cs*d.ps}
+function cG(inst,pr,dep,stp,dir,csOvr,LAD,rPct){var pv=gPV(inst,pr,csOvr),d=ID[inst],psz=d?d.ps:.00001,sg=dir==="sell"?1:-1;var ra=dep*(rPct/100),rows=[],cL=0,si=-1;for(var i=0;i<LAD.length;i++){var lot=LAD[i];cL=Math.round((cL+lot)*100)/100;var dst=i*stp,pl=pr+sg*dst*psz,loss=0;for(var j=0;j<=i;j++)loss+=LAD[j]*(i-j)*stp*pv;var wS=0,lS=0;for(var j2=0;j2<=i;j2++){wS+=(pr+sg*j2*stp*psz)*LAD[j2];lS+=LAD[j2]}var avg=lS>0?wS/lS:pr,dA=Math.abs((pl-avg)/psz);rows.push({n:i+1,lot:lot,cLot:cL,pl:pl,dist:dst,loss:loss,rPct:loss/dep*100,avg:avg,dAvg:Math.round(dA*10)/10});if(si===-1&&loss>=ra)si=i}return{rows:rows,stopIdx:si,riskAmt:ra}}
+function fO(inst,pr,dep,sD,dir,csOvr,LAD,rPct){var ra=dep*(rPct/100),bel=null,abv=null;for(var n=2;n<=LAD.length;n++){var sp=Math.floor(sD/(n-1));if(sp<1)break;var res=cG(inst,pr,dep,sp,dir,csOvr,LAD,rPct);if(!res||n-1>=res.rows.length)continue;var p=res.rows[n-1];var v={nPos:n,step:sp,loss:p.loss,rPct:p.rPct,aDist:sp*(n-1),cLot:p.cLot,result:res};if(p.loss<ra){if(!bel||p.loss>bel.loss)bel=v}else{if(!abv||p.loss<abv.loss)abv=v;break}}return{below:bel,above:abv}}
+function sLS(s){try{localStorage.setItem("mg-pro-v1",JSON.stringify(s))}catch(e){}}
+function lLS(){try{return JSON.parse(localStorage.getItem("mg-pro-v1"))}catch(e){return null}}
+var fM=function(v){if(v<10)return v.toFixed(2);if(v<1000)return v.toFixed(1);return Math.round(v).toLocaleString("ru-RU")};
+var pw=function(n){return n===1?"пипс":(n>=2&&n<=4)?"пипса":"пипсов"};
+function Tip(p){var s=us(false),sh=s[0],sS=s[1];return h("span",{style:{position:"relative",display:"inline-block",marginLeft:6,cursor:"help"},onMouseEnter:function(){sS(true)},onMouseLeave:function(){sS(false)},onClick:function(){sS(!sh)}},h("span",{style:{display:"inline-flex",alignItems:"center",justifyContent:"center",width:18,height:18,borderRadius:"50%",background:"rgba(59,130,246,.18)",color:"#60a5fa",fontSize:11,fontWeight:700}},"?"),sh?h("span",{style:{position:"absolute",bottom:"calc(100% + 8px)",left:"50%",transform:"translateX(-50%)",background:"#0d1117",color:"#cbd5e1",padding:"10px 14px",borderRadius:10,fontSize:12,lineHeight:1.55,width:280,zIndex:100,boxShadow:"0 12px 40px rgba(0,0,0,.6)",border:"1px solid #1e293b",whiteSpace:"normal",letterSpacing:"-0.005em"}},p.t):null)}
+function WB(p){var m={info:{bg:"rgba(59,130,246,.08)",br:"#3b82f6",ic:"\u2139\uFE0F"},warn:{bg:"rgba(245,158,11,.08)",br:"#f59e0b",ic:"\u26A0\uFE0F"},danger:{bg:"rgba(239,68,68,.08)",br:"#ef4444",ic:"\uD83D\uDD34"}};var c=m[p.type]||m.info;return h("div",{style:{background:c.bg,borderLeft:"3px solid "+c.br,padding:"13px 18px",borderRadius:"0 10px 10px 0",marginBottom:10,fontSize:14.5,color:"#e2e8f0",lineHeight:1.55,letterSpacing:"-0.005em"}},h("span",{style:{marginRight:9}},c.ic),p.children)}
+function AnimNum(p){var ref=uR(null);var prev=uR(typeof p.value==="number"?p.value:0);var fmt=p.format||function(v){return v.toFixed(2)};ue(function(){if(typeof p.value!=="number"||isNaN(p.value))return;var to=p.value,from=prev.current;if(from===to)return;var diff=Math.abs(to-from);var thresh=Math.max(Math.abs(from)*0.08,0.5);if(diff<thresh){if(ref.current)ref.current.textContent=fmt(to);prev.current=to;return}var start=performance.now(),dur=p.duration||280,fromCap=from;function tick(now){var t=Math.min(1,(now-start)/dur);var eased=1-Math.pow(1-t,3);var v=fromCap+(to-fromCap)*eased;if(ref.current)ref.current.textContent=fmt(v);if(t<1)requestAnimationFrame(tick);else prev.current=to}requestAnimationFrame(tick)},[p.value]);return h("span",{ref:ref},fmt(p.value))}
+function SC(p){return h("div",{className:"stat-card"},h("div",{className:"stat-label"},p.label),h("div",{className:"stat-value tnum",style:{color:p.color||"#e2e8f0"}},typeof p.numValue==="number"?h(AnimNum,{value:p.numValue,format:p.format,duration:280}):p.value),p.sub?h("div",{className:"stat-sub"},p.sub):null)}
+function Chrt(p){var pos=p.positions,sp=p.stopIdx,dep=p.deposit,rPct=p.riskPct;if(!pos||pos.length<2)return null;var end=Math.min(sp>=0?sp+5:pos.length,60),dp=pos.slice(0,end);if(dp.length<2)return null;var mL=1;for(var i=0;i<dp.length;i++){if(dp[i].loss>mL)mL=dp[i].loss}var rL=dep*(rPct/100),W=740,H=220,pL=55,pR=56,pT=20,pB=30,cW=W-pL-pR,cH=H-pT-pB;function sx(i){return pL+(i/(dp.length-1))*cW}function sy(v){return pT+cH-(v/mL)*cH}var bW=Math.max(2,cW/dp.length-1),rY=sy(rL);var els=[h("defs",{key:"d"},h("linearGradient",{id:"bgG",x1:"0",y1:"0",x2:"0",y2:"1"},h("stop",{offset:"0%",stopColor:"#3b82f6",stopOpacity:"0.95"}),h("stop",{offset:"100%",stopColor:"#06b6d4",stopOpacity:"0.35"})))];[.25,.5,.75,1].forEach(function(f){els.push(h("line",{key:"gl"+f,x1:pL,y1:sy(mL*f),x2:W-pR,y2:sy(mL*f),stroke:"#1e293b"}));els.push(h("text",{key:"gt"+f,x:pL-6,y:sy(mL*f)+4,textAnchor:"end",fill:"#475569",fontSize:"9",fontFamily:"Manrope"},"$"+Math.round(mL*f)))});dp.forEach(function(pt,i){els.push(h("rect",{key:"b"+i,x:sx(i)-bW/2,y:sy(pt.loss),width:bW,height:Math.max(0,cH-(sy(pt.loss)-pT)),fill:sp<0||i<=sp?"url(#bgG)":"#334155",rx:"1.5",opacity:sp>=0&&i>sp?.3:1}))});if(rL<=mL){els.push(h("line",{key:"rl",x1:pL,y1:rY,x2:W-pR,y2:rY,stroke:"#ef4444",strokeWidth:"1.5",strokeDasharray:"6,4"}));els.push(h("text",{key:"rt",x:W-pR+4,y:rY+4,fill:"#ef4444",fontSize:"10",fontWeight:"600",fontFamily:"Manrope"},"СТОП"))}var st=Math.max(1,Math.floor(dp.length/10));for(var j=0;j<dp.length;j+=st){els.push(h("text",{key:"l"+j,x:sx(j),y:H-8,textAnchor:"middle",fill:"#475569",fontSize:"9",fontFamily:"Manrope"},"#"+(j+1)))}return h("svg",{viewBox:"0 0 "+W+" "+H,style:{width:"100%",height:"auto",display:"block"}},els)}
+function PMC(p){var lots=bL(aPreset(p.preset).groups,p.preset.mult);var show=lots.slice(0,30);var maxL=0;for(var i=0;i<show.length;i++)if(show[i]>maxL)maxL=show[i];var sumGC=p.preset.counts.reduce(function(a,b){return a+b},0);var W=540,H=58,gap=3,bW=(W-gap*(show.length-1))/show.length;var defs=h("defs",{key:"d"},h("linearGradient",{id:"mcExpl",x1:"0",y1:"0",x2:"0",y2:"1"},h("stop",{offset:"0%",stopColor:"#60a5fa",stopOpacity:"1"}),h("stop",{offset:"100%",stopColor:"#3b82f6",stopOpacity:"0.7"})),h("linearGradient",{id:"mcMul",x1:"0",y1:"0",x2:"0",y2:"1"},h("stop",{offset:"0%",stopColor:"#f59e0b",stopOpacity:"0.85"}),h("stop",{offset:"100%",stopColor:"#d97706",stopOpacity:"0.55"})));var els=[defs];show.forEach(function(lot,i){var x=i*(bW+gap),hg=Math.max(2,(lot/maxL)*H),y=H-hg;var inExpl=i<sumGC;els.push(h("rect",{key:i,x:x,y:y,width:bW,height:hg,fill:inExpl?"url(#mcExpl)":"url(#mcMul)",rx:"1.5"}))});if(sumGC<show.length){var sxL=sumGC*(bW+gap)-gap/2;els.push(h("line",{key:"sep",x1:sxL,y1:0,x2:sxL,y2:H,stroke:"rgba(245,158,11,.5)",strokeWidth:"1",strokeDasharray:"3,3"}))}return h("svg",{viewBox:"0 0 "+W+" "+H,style:{width:"100%",height:H,display:"block"}},els)}
+function RiskSlider(p){var risk=p.value;var pct=((risk-0.1)/(5-0.1))*100;var color=risk<=1.0?"#10b981":risk<=2.5?"#f59e0b":"#ef4444";var glow=risk<=1.0?"rgba(16,185,129,.5)":risk<=2.5?"rgba(245,158,11,.5)":"rgba(239,68,68,.5)";var bColor=risk<=1.0?"rgba(16,185,129,.55)":risk<=2.5?"rgba(245,158,11,.55)":"rgba(239,68,68,.55)";var fillStyle={width:pct+"%",backgroundColor:color,boxShadow:"0 0 16px "+glow};return h("div",{className:"slider-wrap"},h("div",{className:"slider-tip tnum",style:{left:pct+"%",color:color,borderColor:bColor}},risk.toFixed(2)+" %"),h("div",{className:"slider-track"},h("div",{className:"slider-fill",style:fillStyle})),h("input",{className:"slider-input",type:"range",min:"0.1",max:"5",step:"0.05",value:risk,onChange:p.onChange,style:{"--thumb-glow":glow}}),h("div",{className:"slider-ticks"},h("span",null,"0.1 %"),h("span",null,"1 %"),h("span",null,"2.5 %"),h("span",null,"5 %")))}
+function PresetExpanded(p){var pr=p.preset;var sumGC=pr.counts.reduce(function(a,b){return a+b},0);return h("div",{className:"preset-expanded"},h("div",{className:"preset-head"},h("div",{className:"preset-name"},pr.name),h("span",{className:"preset-tag"},pr.tag)),h("div",{className:"preset-desc"},pr.desc),h("div",{style:{padding:"4px 0 14px"}},h(PMC,{preset:pr})),h("div",{style:{display:"flex",gap:18,fontSize:13,color:"#94a3b8",flexWrap:"wrap"}},h("span",{style:{display:"flex",alignItems:"center",gap:7}},h("span",{style:{width:11,height:11,background:"linear-gradient(180deg,#60a5fa,#3b82f6)",borderRadius:2}}),"Базовые серии (",sumGC," позиций)"),h("span",{style:{display:"flex",alignItems:"center",gap:7}},h("span",{style:{width:11,height:11,background:"linear-gradient(180deg,#f59e0b,#d97706)",borderRadius:2}}),"Множитель")),h("div",{className:"preset-metrics"},h("div",null,h("div",{className:"preset-metric-label"},"Базовых позиций"),h("div",{className:"preset-metric-value"},sumGC)),h("div",null,h("div",{className:"preset-metric-label"},"Множитель"),h("div",{className:"preset-metric-value"},"\u00D7"+pr.mult.toFixed(2))),h("div",null,h("div",{className:"preset-metric-label"},"Рекомендуемый риск"),h("div",{className:"preset-metric-value"},pr.risk.toFixed(2)+" %"))))}
+function GroupRow(p){return h("div",{className:"grp-row"},h("div",{className:"grp-label"},"Серия "+p.idx),h("div",{style:{display:"flex",alignItems:"center",gap:8}},h("input",{type:"text",inputMode:"numeric",value:p.countIn,onChange:p.onCountChange,className:"p-input"+(p.errC?" err":"")}),h("span",{className:"grp-suffix"},"позиций")),h("div",{style:{display:"flex",alignItems:"center",gap:8}},h("input",{type:"text",inputMode:"decimal",value:p.lotIn,onChange:p.onLotChange,className:"p-input"+(p.errL?" err":"")}),h("span",{className:"grp-suffix"},"лот")))}
+function App(){
+ var sv=lLS();
+ var _m=us(sv?sv.mode||"stopDist":"stopDist"),mode=_m[0],sM=_m[1];
+ var _i=us(sv?sv.instrument||"Gold (XAU/USD)":"Gold (XAU/USD)"),inst=_i[0],sI=_i[1];
+ var _p=us(sv?sv.price||4500:4500),price=_p[0],sP=_p[1];
+ var _d=us(sv?sv.deposit||5000:5000),dep=_d[0],sD=_d[1];
+ var _s=us(sv?sv.step||50:50),step=_s[0],sS=_s[1];
+ var _sd=us(sv?sv.stopDist||300:300),sDist=_sd[0],sSD=_sd[1];
+ var _np=us(sv?sv.nPos||15:15),nPos=_np[0],sNP=_np[1];
+ var _dr=us(sv?sv.direction||"buy":"buy"),dir=_dr[0],sDr=_dr[1];
+ var _r=us(sv&&sv.risk?sv.risk:1.0),risk=_r[0],sR=_r[1];
+ var _g=us(sv&&sv.groups?sv.groups:aPreset(PRESETS[0]).groups),groups=_g[0],sG=_g[1];
+ var _mu=us(sv&&sv.mult?sv.mult:1.15),mult=_mu[0],sMul=_mu[1];
+ var _pr=us(sv&&sv.preset?sv.preset:"standard"),preset=_pr[0],sPres=_pr[1];
+ var _fk=us(sv&&sv.forked?sv.forked:false),forked=_fk[0],sFk=_fk[1];
+ var _cs=us(sv?sv.pipVal||0.01:0.01),cSize=_cs[0],sCS=_cs[1];
+ var _sc=us(0),shC=_sc[0],sSC=_sc[1];
+ var _sh=us(false),shH=_sh[0],sSH=_sh[1];
+ var _sv2=us("below"),selV=_sv2[0],sSV=_sv2[1];
+ var _pi=us(String(sv?sv.price||4500:4500)),pIn=_pi[0],sPI=_pi[1];
+ var _di=us(String(sv?sv.deposit||5000:5000)),dIn=_di[0],sDI=_di[1];
+ var _si=us(String(sv?sv.step||50:50)),sIn=_si[0],sSI=_si[1];
+ var _sti=us(String(sv?sv.stopDist||300:300)),stIn=_sti[0],sSTI=_sti[1];
+ var _nin=us(String(sv?sv.nPos||15:15)),nIn=_nin[0],sNI=_nin[1];
+ var _mi=us(String((sv&&sv.mult?sv.mult:1.15).toFixed(2))),multIn=_mi[0],sMI=_mi[1];
+ var _gin=us(null),gIn=_gin[0],sGI=_gin[1];
+ var _pe=us(""),pErr=_pe[0],sPE=_pe[1];
+ var _dm=us(false),dismissed=_dm[0],sDm=_dm[1];
+ var iD=ID[inst];
+ var isCrypto=iD&&iD.crypto;
+ if(!gIn){sGI(groups.map(function(g){return{c:String(g.c),l:String(g.l.toFixed(2))}}))}
+ ue(function(){if(iD){sP(iD.price);sPI(iD.price.toFixed(iD.dec));sPE("")}},[inst]);
+ ue(function(){sLS({mode:mode,instrument:inst,price:price,deposit:dep,step:step,stopDist:sDist,nPos:nPos,direction:dir,pipVal:cSize,risk:risk,groups:groups,mult:mult,preset:preset,forked:forked})},[mode,inst,price,dep,step,sDist,nPos,dir,cSize,risk,groups,mult,preset,forked]);
+ ue(function(){sDm(false)},[mode,inst,price,dep,step,sDist,nPos,dir,risk,mult,preset]);
+
+ var dE="";if(dep<10)dE="Минимум 10";if(dep>1e7)dE="Максимум 10 000 000";
+ var stE="";if((mode==="step"||mode==="nPos")&&step<1)stE="Минимум 1 пипс";if((mode==="step"||mode==="nPos")&&step>10000)stE="Максимум 10 000";
+ var sdE="";if(mode==="stopDist"&&sDist<2)sdE="Минимум 2 пипса";if(mode==="stopDist"&&sDist>100000)sdE="Максимум 100 000";
+ var nE="";if(mode==="nPos"){if(nPos<2)nE="Минимум 2 позиции";if(nPos>100)nE="Максимум 100 позиций"}
+ var pE2="";if(price<=0)pE2="Цена больше 0";
+ var pW="";var rn=PR[inst];if(rn&&price>0&&(price<rn[0]||price>rn[1]))pW="Нетипичная цена для "+inst;
+ var rE="";if(risk<0.1)rE="Минимум 0.1 %";if(risk>5)rE="Максимум 5 %";
+ var mE="";if(mult<1.0)mE="Минимум 1.00";if(mult>1.5)mE="Максимум 1.50";
+ var gcE="";var gErrIdx=-1;
+ for(var gi=0;gi<groups.length;gi++){var gc=parseInt(groups[gi].c);if(isNaN(gc)||gc<1){gcE="Серия "+(gi+1)+": минимум 1 позиция";gErrIdx=gi;break}if(gc>20){gcE="Серия "+(gi+1)+": максимум 20 позиций";gErrIdx=gi;break}var gl=parseFloat(groups[gi].l);if(isNaN(gl)||gl<0.01){gcE="Серия "+(gi+1)+": лот не меньше 0.01";gErrIdx=gi;break}if(gl>100){gcE="Серия "+(gi+1)+": лот не больше 100";gErrIdx=gi;break}}
+ var cC=!dE&&!pE2&&!pErr&&!rE&&!mE&&!gcE&&price>0&&dep>=10;
+ var LAD=cC?bL(groups,mult):null;
+ var sumGC=sumC(groups);
+ var csOvr=isCrypto?cSize:null;
+ var rSt=null,rSD=null,rN=null;
+ if(cC&&LAD){try{if(mode==="step"&&!stE&&step>=1)rSt=cG(inst,price,dep,step,dir,csOvr,LAD,risk);else if(mode==="stopDist"&&!sdE&&sDist>=2)rSD=fO(inst,price,dep,sDist,dir,csOvr,LAD,risk);else if(mode==="nPos"&&!nE&&nPos>=2&&step>=1)rN=cG(inst,price,dep,step,dir,csOvr,LAD,risk)}catch(e){}}
+ var aV=null;if(mode==="stopDist"&&rSD){if(selV==="below"&&rSD.below)aV=rSD.below;else if(selV==="above"&&rSD.above)aV=rSD.above;else if(rSD.below)aV=rSD.below;else if(rSD.above)aV=rSD.above}
+ var res=null,sP2=-1;if(mode==="step"&&rSt){res=rSt;sP2=rSt.stopIdx}else if(mode==="stopDist"&&aV){res=aV.result;sP2=aV.nPos-1}else if(mode==="nPos"&&rN){res=rN;if(rN.stopIdx>=0&&rN.stopIdx<nPos-1)sP2=rN.stopIdx;else sP2=Math.min(nPos-1,rN.rows.length-1)}
+ var rA=dep*(risk/100);
+ var ws=[];
+ if(mode==="step"&&rSt){if(rSt.stopIdx===0)ws.push({t:"danger",m:"Даже одна позиция превышает целевой риск."});if(rSt.stopIdx>=sumGC&&rSt.stopIdx>=0)ws.push({t:"warn",m:"Множитель \u00D7"+mult.toFixed(2)+" активен после "+sumGC+"-й позиции."});if(rSt.stopIdx>=30)ws.push({t:"warn",m:"Лотаж растёт агрессивно."});if(rSt.stopIdx<0)ws.push({t:"danger",m:"100 позиций не достигают целевого риска. Увеличьте шаг или риск."})}
+ if(mode==="stopDist"&&rSD){if(!rSD.below&&!rSD.above)ws.push({t:"danger",m:"Невозможно построить сетку для этого расстояния."});if(aV&&aV.step===1)ws.push({t:"warn",m:"Шаг 1 пипс — минимальный. Спред сопоставим с шагом."});if(aV&&aV.nPos>sumGC)ws.push({t:"warn",m:"Множитель \u00D7"+mult.toFixed(2)+" активен после "+sumGC+"-й позиции."});if(aV&&aV.nPos>30)ws.push({t:"warn",m:"Лотаж растёт агрессивно."})}
+ if(mode==="nPos"&&rN){if(nPos<=sumGC)ws.push({t:"info",m:"Множитель не активируется: "+nPos+" \u2264 "+sumGC+" базовых позиций."});if(nPos>sumGC)ws.push({t:"info",m:"Множитель \u00D7"+mult.toFixed(2)+" активен с "+(sumGC+1)+"-й позиции."});if(rN.stopIdx>=0&&rN.stopIdx<nPos-1)ws.push({t:"danger",m:"Стоп достигается на "+(rN.stopIdx+1)+"-й позиции — раньше запланированных "+nPos+"."})}
+ if(risk>2.5)ws.push({t:"warn",m:"Риск "+risk.toFixed(2)+" % выше стандартного 1 %. Убедитесь, что это сознательное решение."});
+ for(var mk=1;mk<groups.length;mk++){if(parseFloat(groups[mk].l)<parseFloat(groups[mk-1].l)){ws.push({t:"warn",m:"Лоты не возрастают между сериями "+mk+" и "+(mk+1)+". Это нестандартная конфигурация."});break}}
+
+ var cD=null;
+ if(mode==="step"&&rSt&&sP2>=0&&rSt.rows[sP2]){var r=rSt.rows[sP2];cD={nPos:sP2+1,step:step,aDist:r.dist,cLot:r.cLot,loss:r.loss,rPct:r.rPct}}
+ else if(mode==="stopDist"&&aV)cD=aV;
+ else if(mode==="nPos"&&rN&&sP2>=0&&rN.rows[sP2]){var r2=rN.rows[sP2];cD={nPos:sP2+1,step:step,aDist:r2.dist,cLot:r2.cLot,loss:r2.loss,rPct:r2.rPct}}
+
+ var plShare=null;
+ if(res&&sP2>=0){var explSum=0,totalSum=0;for(var ps=0;ps<=sP2;ps++){totalSum+=res.rows[ps].lot;if(ps<sumGC)explSum+=res.rows[ps].lot}plShare=totalSum>0?Math.round(explSum/totalSum*100):100}
+
+ var dS=Math.max(sP2>=0?sP2+6:16,16),sSt=[30,50,70,100].filter(function(s){return s>dS}),lim=shC===0?dS:(sSt[shC-1]||100);
+ var dP=res?res.rows.slice(0,Math.min(lim,res.rows.length)):[];
+ var nL=shC<sSt.length?sSt[shC]:null;
+ var fP=function(p){return p.toFixed(iD?iD.dec:2)};
+ var hP=function(e){var v=e.target.value;sPI(v);if(v.indexOf(".")>=0&&iD){var pts=v.split(".");if(pts[1]&&pts[1].length>iD.dec){sPE("Максимум "+iD.dec+" знаков после точки");return}}sPE("");var n=parseFloat(v);if(!isNaN(n)&&n>0)sP(n)};
+ var hBl=rSD?rSD.below:null,hAb=rSD?rSD.above:null;
+ var shR=res&&sP2>=0&&cD;
+
+ // === Phase 3: scale suggestion (must be AFTER shR is set) ===
+ var suggestion=null;
+ if(shR&&cD&&cC&&!dismissed){
+  var target=dep*(risk/100);
+  var curLoss=cD.loss;
+  if(curLoss>0&&Math.abs(curLoss-target)>target*0.05){
+   var rawScale=target/curLoss;
+   if(rawScale>0.02&&rawScale<50){
+    var newGroups=groups.map(function(g){var newL=Math.round(g.l*rawScale*100)/100;if(newL<0.01)newL=0.01;if(newL>100)newL=100;return{c:g.c,l:newL}});
+    var changed=false;for(var sgi=0;sgi<newGroups.length;sgi++){if(newGroups[sgi].l!==groups[sgi].l){changed=true;break}}
+    if(changed){
+     var newLAD=bL(newGroups,mult);var newCD=null;
+     try{
+      if(mode==="step"){var ns=cG(inst,price,dep,step,dir,csOvr,newLAD,risk);if(ns.stopIdx>=0){var nr=ns.rows[ns.stopIdx];newCD={nPos:ns.stopIdx+1,step:step,aDist:nr.dist,cLot:nr.cLot,loss:nr.loss,rPct:nr.rPct}}}
+      else if(mode==="stopDist"){var nsd=fO(inst,price,dep,sDist,dir,csOvr,newLAD,risk);var nv=selV==="below"?nsd.below:nsd.above;if(!nv)nv=nsd.below||nsd.above;if(nv)newCD=nv}
+      else if(mode==="nPos"){var nn=cG(inst,price,dep,step,dir,csOvr,newLAD,risk);if(nn.rows[nPos-1]){var nrr=nn.rows[nPos-1];newCD={nPos:nPos,step:step,aDist:nrr.dist,cLot:nrr.cLot,loss:nrr.loss,rPct:nrr.rPct}}}
+     }catch(e){}
+     if(newCD){suggestion={scale:rawScale,newGroups:newGroups,curLoss:curLoss,curRPct:cD.rPct,newLoss:newCD.loss,newRPct:newCD.rPct,target:target,diff:newGroups.map(function(g,i){return{idx:i+1,oldL:groups[i].l,newL:g.l}})}}
+    }
+   }
+  }
+ }
+ function applySuggestion(){if(!suggestion)return;sG(suggestion.newGroups);sFk(true);sGI(suggestion.newGroups.map(function(g){return{c:String(g.c),l:String(g.l.toFixed(2))}}))}
+ function dismissSuggestion(){sDm(true)}
+
+ function onCChange(idx,val){var newGIn=gIn.slice();newGIn[idx]={c:val,l:gIn[idx].l};sGI(newGIn);var v=parseInt(val);if(!isNaN(v)&&v>=1&&v<=20){var ng=groups.slice();ng[idx]={c:v,l:groups[idx].l};sG(ng);sFk(true)}}
+ function onLChange(idx,val){var newGIn=gIn.slice();newGIn[idx]={c:gIn[idx].c,l:val};sGI(newGIn);var v=parseFloat(val);if(!isNaN(v)&&v>=0.01&&v<=100){var v2=Math.round(v*100)/100;var ng=groups.slice();ng[idx]={c:groups[idx].c,l:v2};sG(ng);sFk(true)}}
+ function onMultChange(val){sMI(val);var v=parseFloat(val);if(!isNaN(v)&&v>=1.0&&v<=1.5){sMul(Math.round(v*100)/100);sFk(true)}}
+ function applyP(pr){var conf=aPreset(pr);sG(conf.groups);sMul(conf.mult);sR(conf.risk);sPres(pr.id);sFk(false);sGI(conf.groups.map(function(g){return{c:String(g.c),l:String(g.l.toFixed(2))}}));sMI(conf.mult.toFixed(2))}
+ function resetP(){var p=PRESETS.filter(function(x){return x.id===preset})[0]||PRESETS[0];applyP(p)}
+
+ var curPres=PRESETS.filter(function(x){return x.id===preset})[0]||PRESETS[0];
+ var fld={flex:"1 1 200px",minWidth:160},lbl={fontSize:12.5,color:"#94a3b8",marginBottom:7,display:"flex",alignItems:"center",fontWeight:600,letterSpacing:"-0.005em"};
+ var thds=["№","Лот","Общий лотаж","Цена","Убыток $","\u03A3 Убыток $","Просадка %","Средняя","До средней"];
+ var riskColor=risk<=1.0?"#10b981":risk<=2.5?"#f59e0b":"#ef4444";
+ var riskRGB=risk<=1.0?"16,185,129":risk<=2.5?"245,158,11":"239,68,68";
+ var riskLabel=risk<=1.0?"Безопасный":risk<=2.5?"Повышенный":"Агрессивный";
+
+ return h("div",{style:{minHeight:"100vh",position:"relative"}},
+  h("div",{style:{padding:"18px 28px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid rgba(30,41,59,.6)",background:"rgba(13,17,23,.7)",backdropFilter:"blur(12px)",flexWrap:"wrap",gap:12,position:"relative",zIndex:10}},
+   h("div",{style:{display:"flex",alignItems:"center",gap:14}},
+    h("div",{style:{width:40,height:40,borderRadius:10,background:"linear-gradient(135deg,#3b82f6,#06b6d4)",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:18,color:"#fff",boxShadow:"0 6px 20px rgba(59,130,246,.35)"}},"M"),
+    h("div",null,
+     h("div",{style:{fontWeight:700,fontSize:17,letterSpacing:"-0.025em",display:"flex",alignItems:"center",gap:9}},"MiniGun Advisor PRO",h("span",{style:{fontSize:10,background:"linear-gradient(135deg,rgba(245,158,11,.18),rgba(217,119,6,.10))",border:"1px solid rgba(245,158,11,.3)",color:"#f59e0b",padding:"2px 9px",borderRadius:999,fontWeight:700,letterSpacing:".08em"}},"BETA")),
+     h("div",{style:{fontSize:12,color:"#64748b",marginTop:2,letterSpacing:"-0.005em"}},"Калькулятор сетки")
+    )
+   )
+  ),
+  h("div",{style:{maxWidth:1140,margin:"0 auto",padding:"28px 24px",position:"relative",zIndex:1}},
+   h("div",{className:"tab-row"},["stopDist","step","nPos"].map(function(m){var labels={stopDist:"По расстоянию до стопа",step:"По шагу сетки",nPos:"По количеству позиций"};var active=mode===m;return h("button",{key:m,onClick:function(){sM(m);sSC(0);sSV("below")},className:"tab-btn"+(active?" active":"")},labels[m])})),
+   h("div",{className:"p-card"},
+    h("div",{className:"p-section-label"},"Пресет стратегии",h(Tip,{t:"Каждый пресет — это форма лестницы и философия торговли. Структура определяет, какая часть объёма набирается по плану, а какая через множитель."})),
+    h("div",{className:"preset-pills"},PRESETS.map(function(pr){var isActive=preset===pr.id;var sumP=pr.counts.reduce(function(a,b){return a+b},0);return h("button",{key:pr.id,onClick:function(){applyP(pr)},className:"preset-pill"+(isActive?" active":"")},pr.name,h("span",{className:"pill-count"},sumP))})),
+    h(PresetExpanded,{preset:curPres,key:curPres.id}),
+    forked?h("div",{style:{marginTop:14,display:"flex",justifyContent:"space-between",alignItems:"center",padding:"11px 16px",background:"rgba(245,158,11,.08)",border:"1px solid rgba(245,158,11,.25)",borderRadius:12,gap:12,flexWrap:"wrap"}},h("div",{style:{fontSize:13,color:"#f59e0b",letterSpacing:"-0.005em"}},"Структура \u00AB",curPres.name,"\u00BB изменена вручную"),h("button",{onClick:resetP,style:{background:"transparent",border:"1px solid rgba(245,158,11,.5)",color:"#f59e0b",padding:"7px 16px",borderRadius:9,fontSize:12.5,cursor:"pointer",fontWeight:600,fontFamily:"inherit"}},"Сбросить к пресету")):null
+   ),
+   h("div",{className:"p-card"},
+    h("div",{className:"p-section-label"},"Параметры сделки"),
+    h("div",{style:{display:"flex",flexWrap:"wrap",gap:18,marginBottom:22}},
+     h("div",{style:fld},h("div",{style:lbl},"Инструмент",h(Tip,{t:"Торговая пара. От инструмента зависит стоимость пипса."})),h("select",{value:inst,onChange:function(e){sI(e.target.value)},className:"p-input",style:{cursor:"pointer",appearance:"auto"}},Object.keys(ID).map(function(k){return h("option",{key:k,value:k},k)}))),
+     h("div",{style:fld},h("div",{style:lbl},"Цена",h(Tip,{t:"Текущая цена из MT5. Максимум "+(iD?iD.dec:2)+" знаков после точки."})),h("input",{type:"text",inputMode:"decimal",value:pIn,onChange:hP,className:"p-input"+(pE2||pErr?" err":"")}),pE2?h("div",{style:{color:"#ef4444",fontSize:11,marginTop:4}},pE2):null,pErr?h("div",{style:{color:"#ef4444",fontSize:11,marginTop:4}},pErr):null,!pErr&&pW?h("div",{style:{color:"#f59e0b",fontSize:11,marginTop:4}},pW):null),
+     h("div",{style:fld},h("div",{style:lbl},"Депозит",h(Tip,{t:"Сумма на торговом счёте."})),h("input",{type:"text",inputMode:"numeric",value:dIn,onChange:function(e){sDI(e.target.value);var v=parseFloat(e.target.value);if(!isNaN(v))sD(v)},className:"p-input"+(dE?" err":"")}),dE?h("div",{style:{color:"#ef4444",fontSize:11,marginTop:4}},dE):null),
+     isCrypto?h("div",{style:fld},h("div",{style:lbl},"Стоимость пипса на 1 лот",h(Tip,{t:"Из спецификации в MT5: Обзор рынка \u2192 правый клик \u2192 Спецификация \u2192 \u00ABСтоимость тика\u00BB. Для BTCUSD обычно 0.01."})),h("input",{type:"text",inputMode:"decimal",value:String(cSize),onChange:function(e){var v=parseFloat(e.target.value);if(!isNaN(v)&&v>0)sCS(v)},className:"p-input"})):null,
+     mode==="step"?h("div",{style:fld},h("div",{style:lbl},"Шаг сетки, пипсы",h(Tip,{t:"Расстояние между ордерами. 1 пипс = "+(iD?iD.pl:"0.00001")+" цены."})),h("input",{type:"text",inputMode:"numeric",value:sIn,onChange:function(e){sSI(e.target.value);var v=parseInt(e.target.value);if(!isNaN(v)&&v>=0)sS(v)},className:"p-input"+(stE?" err":"")}),stE?h("div",{style:{color:"#ef4444",fontSize:11,marginTop:4}},stE):null):null,
+     mode==="stopDist"?h("div",{style:fld},h("div",{style:lbl},"Расстояние до стопа, пипсы",h(Tip,{t:"Желаемое расстояние до стоп-лосса. Система подберёт шаг и количество позиций."})),h("input",{type:"text",inputMode:"numeric",value:stIn,onChange:function(e){sSTI(e.target.value);var v=parseInt(e.target.value);if(!isNaN(v)&&v>=0)sSD(v)},className:"p-input"+(sdE?" err":"")}),sdE?h("div",{style:{color:"#ef4444",fontSize:11,marginTop:4}},sdE):null):null,
+     mode==="nPos"?h("div",{style:fld},h("div",{style:lbl},"Количество позиций",h(Tip,{t:"Сколько ордеров вы хотите открыть в сетке. Если число не больше суммы серий, множитель не сработает."})),h("input",{type:"text",inputMode:"numeric",value:nIn,onChange:function(e){sNI(e.target.value);var v=parseInt(e.target.value);if(!isNaN(v)&&v>=0)sNP(v)},className:"p-input"+(nE?" err":"")}),nE?h("div",{style:{color:"#ef4444",fontSize:11,marginTop:4}},nE):null):null,
+     mode==="nPos"?h("div",{style:fld},h("div",{style:lbl},"Шаг сетки, пипсы",h(Tip,{t:"Расстояние между ордерами."})),h("input",{type:"text",inputMode:"numeric",value:sIn,onChange:function(e){sSI(e.target.value);var v=parseInt(e.target.value);if(!isNaN(v)&&v>=0)sS(v)},className:"p-input"+(stE?" err":"")}),stE?h("div",{style:{color:"#ef4444",fontSize:11,marginTop:4}},stE):null):null
+    ),
+    h("div",{style:{display:"flex",flexWrap:"wrap",gap:24,alignItems:"stretch"}},
+     h("div",{className:"dir-frame"},
+      h("div",{className:"dir-title"},"Направление сделки"),
+      h("div",{className:"dir-buttons"},
+       h("button",{onClick:function(){sDr("buy")},className:"dir-btn buy"+(dir==="buy"?" active":"")},h("span",{style:{fontSize:9}},"\u25B2"),"BUY"),
+       h("button",{onClick:function(){sDr("sell")},className:"dir-btn sell"+(dir==="sell"?" active":"")},h("span",{style:{fontSize:9}},"\u25BC"),"SELL")
+      )
+     ),
+     h("div",{style:{flex:"1 1 380px",minWidth:280,background:"linear-gradient(180deg,rgba(15,23,42,.6),rgba(13,17,23,.4))",border:"1px solid #1e293b",borderRadius:14,padding:"16px 24px"}},
+      h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center"}},
+       h("div",{style:{fontSize:12.5,color:"#94a3b8",textTransform:"uppercase",letterSpacing:".08em",fontWeight:600}},"Риск на сделку"),
+       h(Tip,{t:"Доля депозита, которую допускаете потерять на одной серии. Стандарт MiniGun — 1 %. Выше 2.5 % считается агрессивным."})
+      ),
+      h(RiskSlider,{value:risk,onChange:function(e){sR(parseFloat(e.target.value))}}),
+      h("div",{style:{display:"flex",justifyContent:"center",marginTop:14}},
+       h("div",{style:{display:"inline-flex",alignItems:"center",gap:14,padding:"10px 22px",borderRadius:999,background:"rgba("+riskRGB+",.10)",border:"1px solid rgba("+riskRGB+",.32)"}},
+        h("span",{style:{color:riskColor,fontWeight:700,fontSize:15,letterSpacing:"-0.005em"}},riskLabel),
+        h("span",{style:{color:"#475569",fontSize:14}},"\u2022"),
+        h("span",{style:{color:"#e2e8f0",fontVariantNumeric:"tabular-nums",fontWeight:600,fontSize:15}},"$",fM(rA)," на серию")
+       )
+      )
+     )
+    )
+   ),
+   h("div",{className:"p-card"},
+    h("div",{style:{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:18,flexWrap:"wrap",gap:8}},
+     h("div",{className:"p-section-label",style:{margin:0}},"Структура сетки",h(Tip,{t:"Пять серий сделок, в каждой одинаковый лот. После последней серии включается множитель, постепенно увеличивающий лот для оставшихся позиций."})),
+     h("div",{style:{fontSize:14,color:"#cbd5e1"}},"Базовых позиций: ",h("b",{style:{color:"#60a5fa",fontVariantNumeric:"tabular-nums",fontSize:16}},sumGC))
+    ),
+    h("div",null,(gIn||[]).map(function(g,i){return h(GroupRow,{key:i,idx:i+1,countIn:g.c,lotIn:g.l,errC:gErrIdx===i,errL:gErrIdx===i,onCountChange:function(e){onCChange(i,e.target.value)},onLotChange:function(e){onLChange(i,e.target.value)}})})),
+    gcE?h("div",{style:{color:"#ef4444",fontSize:12.5,marginTop:10}},gcE):null,
+    h("div",{style:{marginTop:18,paddingTop:18,borderTop:"1px solid rgba(30,41,59,.6)",display:"grid",gridTemplateColumns:"100px 1fr 1fr",gap:14,alignItems:"center"}},
+     h("div",{className:"grp-label",style:{color:"#f59e0b"}},"Множитель"),
+     h("div",{style:{gridColumn:"span 2",display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}},
+      h("input",{type:"text",inputMode:"decimal",value:multIn,onChange:function(e){onMultChange(e.target.value)},className:"p-input"+(mE?" err":""),style:{width:120}}),
+      h("span",{style:{fontSize:12.5,color:"#94a3b8"}},"для позиций ",sumGC+1," — 100"),
+      h(Tip,{t:"Множитель умножается на последний лот предыдущей позиции. Диапазон 1.00 — 1.50. При значении 1.00 лот не растёт."})
+     )
+    )
+   ),
+   mode==="stopDist"&&rSD&&(hBl||hAb)?h("div",{style:{marginBottom:20}},
+    h("div",{style:{display:"flex",gap:6,background:"rgba(15,23,42,.5)",border:"1px solid #1e293b",borderRadius:14,padding:5,flexWrap:"wrap",backdropFilter:"blur(8px)"}},
+     h("button",{onClick:function(){if(hBl){sSV("below");sSC(0)}},style:{flex:"1 1 220px",padding:"12px 18px",borderRadius:10,border:"none",cursor:hBl?"pointer":"default",fontSize:13,fontWeight:600,background:selV==="below"&&hBl?"linear-gradient(135deg,rgba(59,130,246,.18),rgba(6,182,212,.10))":"transparent",color:!hBl?"#334155":selV==="below"?"#e2e8f0":"#94a3b8",fontFamily:"inherit",letterSpacing:"-0.005em",opacity:hBl?1:.4}},"Вариант А — убыток меньше "+risk.toFixed(2)+" %"+(hBl?" ($"+fM(hBl.loss)+")":"")),
+     h("button",{onClick:function(){if(hAb){sSV("above");sSC(0)}},style:{flex:"1 1 220px",padding:"12px 18px",borderRadius:10,border:"none",cursor:hAb?"pointer":"default",fontSize:13,fontWeight:600,background:selV==="above"&&hAb?"linear-gradient(135deg,rgba(59,130,246,.18),rgba(6,182,212,.10))":"transparent",color:!hAb?"#334155":selV==="above"?"#e2e8f0":"#94a3b8",fontFamily:"inherit",letterSpacing:"-0.005em",opacity:hAb?1:.4}},"Вариант Б — убыток больше "+risk.toFixed(2)+" %"+(hAb?" ($"+fM(hAb.loss)+")":""))
+    ),
+    !hAb&&hBl?h("div",{style:{marginTop:10}},h(WB,{type:"info"},"При таком расстоянии невозможно набрать объём для убытка ",risk.toFixed(2)," %. Увеличьте расстояние.")):null
+   ):null,
+   ws.length>0?h("div",{style:{marginBottom:20}},ws.map(function(w,i){return h(WB,{key:i,type:w.t},w.m)})):null,
+   suggestion?h("div",{style:{background:"linear-gradient(180deg,rgba(59,130,246,.10),rgba(6,182,212,.05))",border:"1px solid rgba(59,130,246,.32)",borderRadius:18,padding:24,marginBottom:20,backdropFilter:"blur(12px)",boxShadow:"0 8px 32px rgba(59,130,246,.10)"}},
+    h("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}},
+     h("span",{style:{fontSize:18}},"\u2728"),
+     h("span",{style:{fontSize:13,color:"#60a5fa",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700}},"Рекомендация автоподбора")
+    ),
+    h("div",{style:{display:"flex",alignItems:"baseline",gap:14,marginBottom:18,flexWrap:"wrap"}},
+     h("span",{style:{fontSize:16,color:"#cbd5e1"}},"Масштабировать лестницу"),
+     h("span",{style:{fontSize:32,fontWeight:700,color:"#60a5fa",fontVariantNumeric:"tabular-nums",letterSpacing:"-0.025em"}},"\u00D7"+suggestion.scale.toFixed(2)),
+     h("span",{style:{fontSize:14,color:"#94a3b8"}},"для попадания в "+risk.toFixed(2)+" %")
+    ),
+    h("div",{style:{display:"flex",gap:20,marginBottom:18,flexWrap:"wrap",alignItems:"center"}},
+     h("div",{style:{flex:"1 1 160px"}},
+      h("div",{style:{fontSize:11,color:"#94a3b8",textTransform:"uppercase",letterSpacing:".08em",fontWeight:600,marginBottom:6}},"Сейчас"),
+      h("div",{style:{fontSize:20,color:"#ef4444",fontWeight:700,fontVariantNumeric:"tabular-nums",letterSpacing:"-0.02em"}},"$"+fM(suggestion.curLoss)+" / "+suggestion.curRPct.toFixed(2)+" %")
+     ),
+     h("div",{style:{fontSize:24,color:"#475569",alignSelf:"center"}},"\u2192"),
+     h("div",{style:{flex:"1 1 160px"}},
+      h("div",{style:{fontSize:11,color:"#94a3b8",textTransform:"uppercase",letterSpacing:".08em",fontWeight:600,marginBottom:6}},"С автоподбором"),
+      h("div",{style:{fontSize:20,color:"#10b981",fontWeight:700,fontVariantNumeric:"tabular-nums",letterSpacing:"-0.02em"}},"$"+fM(suggestion.newLoss)+" / "+suggestion.newRPct.toFixed(2)+" %")
+     )
+    ),
+    h("div",{style:{display:"grid",gridTemplateColumns:"repeat(5, 1fr)",gap:8,marginBottom:18,padding:"14px 0",borderTop:"1px solid rgba(30,41,59,.6)",borderBottom:"1px solid rgba(30,41,59,.6)"}},
+     suggestion.diff.map(function(d,i){var ch=d.oldL!==d.newL;return h("div",{key:i,style:{textAlign:"center"}},
+      h("div",{style:{fontSize:11,color:"#64748b",marginBottom:5,textTransform:"uppercase",letterSpacing:".05em",fontWeight:600}},"Серия "+d.idx),
+      h("div",{style:{fontSize:14,color:"#94a3b8",fontVariantNumeric:"tabular-nums"}},d.oldL.toFixed(2),h("span",{style:{margin:"0 4px",color:"#475569"}},"\u2192"),h("span",{style:{color:ch?"#60a5fa":"#94a3b8",fontWeight:ch?700:400}},d.newL.toFixed(2)))
+     )})
+    ),
+    forked?h("div",{style:{fontSize:12.5,color:"#94a3b8",marginBottom:14,padding:"8px 12px",background:"rgba(245,158,11,.06)",border:"1px solid rgba(245,158,11,.18)",borderRadius:8}},"Применяется к вашей изменённой структуре. Пропорции лотов между сериями сохраняются."):null,
+    h("div",{style:{display:"flex",gap:10,flexWrap:"wrap"}},
+     h("button",{onClick:applySuggestion,style:{flex:"1 1 200px",background:"linear-gradient(135deg,#3b82f6,#06b6d4)",border:"none",borderRadius:10,padding:"13px 24px",color:"#fff",cursor:"pointer",fontSize:14.5,fontWeight:700,fontFamily:"inherit",letterSpacing:"-0.005em",boxShadow:"0 4px 14px rgba(59,130,246,.35)"}},"Применить рекомендацию"),
+     h("button",{onClick:dismissSuggestion,style:{flex:"0 0 auto",background:"transparent",border:"1px solid #334155",borderRadius:10,padding:"13px 22px",color:"#94a3b8",cursor:"pointer",fontSize:14,fontWeight:600,fontFamily:"inherit"}},"Не сейчас")
+    )
+   ):null,
+   shR?h("div",null,
+    h("div",{className:"cards-wrap"},
+     h(SC,{label:mode==="nPos"&&rN&&rN.stopIdx>=0&&rN.stopIdx<nPos-1?"Стоп на позиции":(mode==="nPos"?"Запланировано":"Позиций до стопа"),numValue:cD.nPos,format:function(v){return Math.round(v).toString()},sub:mode==="nPos"&&rN&&rN.stopIdx>=0&&rN.stopIdx<nPos-1?("раньше запланированных "+nPos):(cD.nPos>sumGC?"Работает множитель":"В базовой части")}),
+     h(SC,{label:"Шаг сетки",numValue:cD.step,format:function(v){return Math.round(v)+" "+pw(Math.round(v))}}),
+     h(SC,{label:mode==="nPos"?"Итоговое расстояние":"Расстояние до стопа",numValue:cD.aDist,format:function(v){return Math.round(v)+" "+pw(Math.round(v))},sub:fP(price)+" \u2192 "+fP(res.rows[sP2].pl)}),
+     h(SC,{label:"Общий лотаж",numValue:cD.cLot,format:function(v){return v.toFixed(2)}}),
+     h(SC,{label:"Убыток / Просадка",numValue:cD.loss,format:function(v){return "$"+fM(v)+" / "+(v/dep*100).toFixed(2)+" %"},color:"#ef4444"}),
+     plShare!==null?h("div",{className:"stat-card"},
+      h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}},
+       h("div",{className:"stat-label",style:{margin:0}},"Доля по плану"),
+       h(Tip,{t:"Какая часть общего объёма набрана базовыми сериями (которые вы сами задали), а какая — автоматическим разгоном через множитель. Считается до позиции стопа. 100 % = весь объём по плану трейдера, без множителя."})
+      ),
+      h("div",{className:"stat-value tnum"},h(AnimNum,{value:plShare,format:function(v){return Math.round(v)+" %"},duration:280})),
+      h("div",{className:"stat-sub"},plShare>=50?"набрано базовыми сериями":"добор за счёт множителя")
+     ):null
+    ),
+    mode!=="nPos"&&Math.abs(cD.loss-rA)>0.5?h("div",{style:{fontSize:14,color:"#cbd5e1",marginBottom:18,padding:"12px 18px",background:"rgba(245,158,11,.06)",border:"1px solid rgba(245,158,11,.2)",borderRadius:10,letterSpacing:"-0.005em"}},"Фактический убыток: $",fM(cD.loss)," (цель: $",fM(rA),"). Разница из-за округления лотов до 0.01."):null,
+    h("div",{style:{background:"linear-gradient(180deg,rgba(17,24,39,.7),rgba(13,17,23,.5))",border:"1px solid #1e293b",borderRadius:18,padding:"22px 18px",marginBottom:24,backdropFilter:"blur(12px)"}},h("div",{style:{fontSize:11,color:"#64748b",marginBottom:14,textTransform:"uppercase",letterSpacing:".08em",fontWeight:600}},"Нарастание убытка по позициям"),h(Chrt,{positions:res.rows,stopIdx:sP2,deposit:dep,riskPct:risk})),
+    h("div",{style:{marginBottom:20}},h("button",{onClick:function(){sSH(!shH)},style:{background:"none",border:"none",color:"#64748b",cursor:"pointer",fontSize:13,padding:0,textDecoration:"underline",textUnderlineOffset:3,fontFamily:"inherit",letterSpacing:"-0.005em"}},shH?"\u25BE Скрыть подсказку":"\u25B8 Как читать результаты?"),shH?h("div",{style:{marginTop:10,padding:"15px 20px",background:"rgba(59,130,246,.05)",border:"1px solid rgba(59,130,246,.18)",borderRadius:12,fontSize:13.5,color:"#94a3b8",lineHeight:1.7,letterSpacing:"-0.005em"}},"Таблица показывает, что произойдёт, если цена будет двигаться против вашей позиции. Каждая строка — новый ордер сетки. Красная строка — позиция, на которой убыток достигнет ",risk.toFixed(2)," % от депозита. Строки после затемнены — советник закроет торговлю по лимиту убытка раньше. \u00ABСредняя\u00BB — средневзвешенная цена всех открытых позиций. \u00ABДо средней\u00BB — сколько пипсов нужно пройти обратно для безубытка."):null),
+    h("div",{style:{background:"linear-gradient(180deg,rgba(17,24,39,.7),rgba(13,17,23,.5))",border:"1px solid #1e293b",borderRadius:18,overflow:"hidden",backdropFilter:"blur(12px)"}},
+     h("div",{style:{overflowX:"auto"}},
+      h("table",{style:{width:"100%",borderCollapse:"collapse",fontSize:13,fontVariantNumeric:"tabular-nums"}},
+       h("thead",null,h("tr",{style:{position:"sticky",top:0,zIndex:10,background:"rgba(15,23,42,.95)",backdropFilter:"blur(8px)"}},thds.map(function(hd,i){return h("th",{key:i,style:{padding:"14px 12px",textAlign:i===0?"center":"right",color:"#64748b",fontWeight:600,fontSize:10.5,textTransform:"uppercase",letterSpacing:".08em",borderBottom:"1px solid #1e293b",whiteSpace:"nowrap"}},hd)}))),
+       h("tbody",null,dP.map(function(p,idx){var isSt=idx===sP2,aft=sP2>=0&&idx>sP2;var gB={};var cum=0;for(var gi2=0;gi2<groups.length;gi2++){cum+=parseInt(groups[gi2].c)||0;gB[cum]=1}var isGE=gB[p.n]||false;var rc=p.rPct<(risk*.3)?"#10b981":p.rPct<(risk*.7)?"#f59e0b":"#ef4444";var bg=isSt?"rgba(239,68,68,.10)":idx%2===0?"rgba(17,24,39,.4)":"rgba(15,23,42,.4)";var isMult=p.n>sumGC;return h("tr",{key:p.n,style:{background:bg,opacity:aft?.35:1,borderLeft:isSt?"3px solid #ef4444":"3px solid transparent",borderBottom:isGE&&!aft?"2px solid rgba(51,65,85,.7)":"1px solid rgba(26,35,50,.5)"}},h("td",{style:{padding:"10px 12px",textAlign:"center",color:isMult?"#f59e0b":"#64748b",fontWeight:600}},p.n,p.n===sumGC+1?h("span",{style:{fontSize:9,color:"#f59e0b"}}," \u00D7"):null),h("td",{style:{padding:"10px 12px",textAlign:"right"}},p.lot.toFixed(2)),h("td",{style:{padding:"10px 12px",textAlign:"right",fontWeight:600}},p.cLot.toFixed(2)),h("td",{style:{padding:"10px 12px",textAlign:"right",color:"#94a3b8"}},fP(p.pl)),h("td",{style:{padding:"10px 12px",textAlign:"right"}},p.loss>0?"-"+fM(p.loss):"0"),h("td",{style:{padding:"10px 12px",textAlign:"right",fontWeight:600,color:isSt?"#ef4444":"#e2e8f0"}},p.loss>0?"-$"+fM(p.loss):"$0"),h("td",{style:{padding:"10px 12px",textAlign:"right",color:rc,fontWeight:600}},p.rPct.toFixed(2)+" %"),h("td",{style:{padding:"10px 12px",textAlign:"right",color:"#94a3b8"}},fP(p.avg)),h("td",{style:{padding:"10px 12px",textAlign:"right",color:"#64748b"}},p.dAvg))}))
+      )
+     ),
+     nL?h("div",{style:{textAlign:"center",padding:14,borderTop:"1px solid rgba(30,41,59,.6)"}},h("button",{onClick:function(){sSC(shC+1)},style:{background:"transparent",border:"1px solid #334155",borderRadius:10,padding:"9px 26px",color:"#94a3b8",cursor:"pointer",fontSize:13,fontFamily:"inherit",fontWeight:600,letterSpacing:"-0.005em"}},"Показать ",nL," позиций")):null
+    ),
+    h("div",{style:{fontSize:11,color:"#475569",marginTop:18,textAlign:"center",letterSpacing:"-0.005em"}},"Расчёт не учитывает спред и комиссию брокера. Фактический убыток может быть немного больше.")
+   ):!shR&&!dE&&!pE2&&!pErr&&!gcE?h("div",{style:{textAlign:"center",padding:50,color:"#64748b",fontSize:14}},"Введите данные для расчёта"):null
+  ),
+  h("div",{style:{textAlign:"center",padding:"28px 24px",borderTop:"1px solid rgba(30,41,59,.6)",fontSize:12,color:"#475569",marginTop:48,position:"relative",zIndex:1}},"MiniGun Dealing \u00A9 2025 \u00B7 ",h("a",{href:"https://t.me/OppenTrader",target:"_blank",rel:"noreferrer",style:{color:"#60a5fa",textDecoration:"none"}},"@OppenTrader"))
+ );
+}
+ReactDOM.render(React.createElement(App),document.getElementById("root"));
+</script>
+</body>
+</html>
