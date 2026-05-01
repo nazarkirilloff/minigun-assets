@@ -114,6 +114,49 @@ function PMC(p){var lots=bL(aPreset(p.preset).groups,p.preset.mult);var show=lot
 function RiskSlider(p){var risk=p.value;var pct=((risk-0.1)/(5-0.1))*100;var color=risk<=1.0?"#10b981":risk<=2.5?"#f59e0b":"#ef4444";var glow=risk<=1.0?"rgba(16,185,129,.5)":risk<=2.5?"rgba(245,158,11,.5)":"rgba(239,68,68,.5)";var bColor=risk<=1.0?"rgba(16,185,129,.55)":risk<=2.5?"rgba(245,158,11,.55)":"rgba(239,68,68,.55)";var fillStyle={width:pct+"%",backgroundColor:color,boxShadow:"0 0 16px "+glow};return h("div",{className:"slider-wrap"},h("div",{className:"slider-tip tnum",style:{left:pct+"%",color:color,borderColor:bColor}},risk.toFixed(2)+" %"),h("div",{className:"slider-track"},h("div",{className:"slider-fill",style:fillStyle})),h("input",{className:"slider-input",type:"range",min:"0.1",max:"5",step:"0.05",value:risk,onChange:p.onChange,style:{"--thumb-glow":glow}}),h("div",{className:"slider-ticks"},h("span",null,"0.1 %"),h("span",null,"1 %"),h("span",null,"2.5 %"),h("span",null,"5 %")))}
 function PresetExpanded(p){var pr=p.preset;var sumGC=pr.counts.reduce(function(a,b){return a+b},0);return h("div",{className:"preset-expanded"},h("div",{className:"preset-head"},h("div",{className:"preset-name"},pr.name),h("span",{className:"preset-tag"},pr.tag)),h("div",{className:"preset-desc"},pr.desc),h("div",{style:{padding:"4px 0 14px"}},h(PMC,{preset:pr})),h("div",{style:{display:"flex",gap:18,fontSize:13,color:"#94a3b8",flexWrap:"wrap"}},h("span",{style:{display:"flex",alignItems:"center",gap:7}},h("span",{style:{width:11,height:11,background:"linear-gradient(180deg,#60a5fa,#3b82f6)",borderRadius:2}}),"Базовые серии (",sumGC," позиций)"),h("span",{style:{display:"flex",alignItems:"center",gap:7}},h("span",{style:{width:11,height:11,background:"linear-gradient(180deg,#f59e0b,#d97706)",borderRadius:2}}),"Множитель")),h("div",{className:"preset-metrics"},h("div",null,h("div",{className:"preset-metric-label"},"Базовых позиций"),h("div",{className:"preset-metric-value"},sumGC)),h("div",null,h("div",{className:"preset-metric-label"},"Множитель"),h("div",{className:"preset-metric-value"},"\u00D7"+pr.mult.toFixed(2))),h("div",null,h("div",{className:"preset-metric-label"},"Рекомендуемый риск"),h("div",{className:"preset-metric-value"},pr.risk.toFixed(2)+" %"))))}
 function GroupRow(p){return h("div",{className:"grp-row"},h("div",{className:"grp-label"},"Серия "+p.idx),h("div",{style:{display:"flex",alignItems:"center",gap:8}},h("input",{type:"text",inputMode:"numeric",value:p.countIn,onChange:p.onCountChange,className:"p-input"+(p.errC?" err":"")}),h("span",{className:"grp-suffix"},"позиций")),h("div",{style:{display:"flex",alignItems:"center",gap:8}},h("input",{type:"text",inputMode:"decimal",value:p.lotIn,onChange:p.onLotChange,className:"p-input"+(p.errL?" err":"")}),h("span",{className:"grp-suffix"},"лот")))}
+// Adaptive headline for suggestion based on mechanism
+function suggHeadline(s){
+ if(!s)return"";
+ var m=s.mech;
+ if(m==="soleScale"||m==="activeScale"){var which=m==="activeScale"?"активные серии":"лестницу";return"Масштабировать "+which+" \u00D7"+s.scale.toFixed(2)}
+ if(m==="soleMult")return"Изменить множитель на \u00D7"+s.newMult.toFixed(2)
+ if(m==="count"){var cd=s.countDiff[0];return"Изменить количество в Серии "+(cd.idx+1)+" с "+cd.oldC+" на "+cd.newC}
+ if(m==="lotsMult")return"Масштаб \u00D7"+s.scale.toFixed(2)+" + множитель \u00D7"+s.newMult.toFixed(2)
+ if(m==="lotsCount"){var cd2=s.countDiff[0];return"Масштаб \u00D7"+s.scale.toFixed(2)+" + Серия "+(cd2.idx+1)+": "+cd2.oldC+"\u2192"+cd2.newC}
+ if(m==="multCount"){var cd3=s.countDiff[0];return"Множитель \u00D7"+s.newMult.toFixed(2)+" + Серия "+(cd3.idx+1)+": "+cd3.oldC+"\u2192"+cd3.newC}
+ if(m==="triple")return"Изменить лоты, множитель и количество позиций"
+ return""
+}
+// Render diff section blocks based on what changed
+function suggDiffSection(s,sizeMult){
+ sizeMult=sizeMult||1;
+ var fzS=Math.round(11*sizeMult),fzL=Math.round(13*sizeMult),padTB=Math.round(10*sizeMult);
+ var blocks=[];
+ var lotsChanged=false;
+ for(var i=0;i<s.diff.length;i++)if(s.diff[i].oldL!==s.diff[i].newL){lotsChanged=true;break}
+ if(lotsChanged){
+  blocks.push(h("div",{key:"lots",style:{display:"grid",gridTemplateColumns:"repeat(5, 1fr)",gap:6,padding:padTB+"px 0"}},
+   s.diff.map(function(d,i){var ch=d.oldL!==d.newL;return h("div",{key:i,style:{textAlign:"center"}},
+    h("div",{style:{fontSize:fzS,color:"#64748b",marginBottom:4,textTransform:"uppercase",letterSpacing:".05em",fontWeight:600}},"Серия "+d.idx),
+    h("div",{style:{fontSize:fzL,color:"#94a3b8",fontVariantNumeric:"tabular-nums"}},d.oldL.toFixed(2),h("span",{style:{margin:"0 3px",color:"#475569"}},"\u2192"),h("span",{style:{color:ch?"#60a5fa":"#94a3b8",fontWeight:ch?700:400}},d.newL.toFixed(2)))
+   )})
+  ));
+ }
+ if(s.countDiff&&s.countDiff.length){
+  blocks.push(h("div",{key:"cnt",style:{display:"flex",flexWrap:"wrap",gap:14,padding:padTB+"px 0",alignItems:"center"}},
+   h("span",{style:{fontSize:fzS,color:"#64748b",textTransform:"uppercase",letterSpacing:".05em",fontWeight:600}},"Позиций:"),
+   s.countDiff.map(function(cd,i){return h("span",{key:i,style:{fontSize:fzL,color:"#94a3b8",fontVariantNumeric:"tabular-nums"}},"Серия ",(cd.idx+1),": ",cd.oldC," ",h("span",{style:{color:"#475569"}},"\u2192")," ",h("span",{style:{color:"#60a5fa",fontWeight:700}},cd.newC))})
+  ));
+ }
+ if(s.newMult&&s.newMult!==s.oldMult){
+  blocks.push(h("div",{key:"mlt",style:{display:"flex",gap:10,alignItems:"center",padding:padTB+"px 0"}},
+   h("span",{style:{fontSize:fzS,color:"#64748b",textTransform:"uppercase",letterSpacing:".05em",fontWeight:600}},"Множитель:"),
+   h("span",{style:{fontSize:fzL,color:"#94a3b8",fontVariantNumeric:"tabular-nums"}},"\u00D7"+s.oldMult.toFixed(2)," ",h("span",{style:{color:"#475569"}},"\u2192")," ",h("span",{style:{color:"#60a5fa",fontWeight:700}},"\u00D7"+s.newMult.toFixed(2)))
+  ));
+ }
+ return blocks;
+}
+function MechBadge(p){return h("span",{style:{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:".08em",color:"#60a5fa",padding:"4px 11px",background:"rgba(59,130,246,.12)",border:"1px solid rgba(59,130,246,.32)",borderRadius:999}},p.label)}
 function App(){
  var sv=lLS();
  var _m=us(sv?sv.mode||"stopDist":"stopDist"),mode=_m[0],sM=_m[1];
@@ -142,6 +185,7 @@ function App(){
  var _gin=us(null),gIn=_gin[0],sGI=_gin[1];
  var _pe=us(""),pErr=_pe[0],sPE=_pe[1];
  var _dm=us(false),dismissed=_dm[0],sDm=_dm[1];
+ var _alt=us(false),altOpen=_alt[0],sAlt=_alt[1];
  var iD=ID[inst];
  var isCrypto=iD&&iD.crypto;
  if(!gIn){sGI(groups.map(function(g){return{c:String(g.c),l:String(g.l.toFixed(2))}}))}
@@ -191,29 +235,113 @@ function App(){
  var hBl=rSD?rSD.below:null,hAb=rSD?rSD.above:null;
  var shR=res&&sP2>=0&&cD;
 
- // === Phase 3: scale suggestion (must be AFTER shR is set) ===
- var suggestion=null;
+ // === Phase 4: Smart Search — 8 mechanisms ===
+ // Helper: evaluate a candidate (groups, mult) and return its cD-equivalent
+ function evalCand(testGroups,testMult){
+  try{
+   var ladd=bL(testGroups,testMult);
+   if(mode==="step"){var rr=cG(inst,price,dep,step,dir,csOvr,ladd,risk);if(rr.stopIdx<0)return null;var rrow=rr.rows[rr.stopIdx];return{nPos:rr.stopIdx+1,step:step,aDist:rrow.dist,cLot:rrow.cLot,loss:rrow.loss,rPct:rrow.rPct}}
+   if(mode==="stopDist"){var sds=fO(inst,price,dep,sDist,dir,csOvr,ladd,risk);var pick=selV==="below"?sds.below:sds.above;return pick||null}
+   if(mode==="nPos"){var rn2=cG(inst,price,dep,step,dir,csOvr,ladd,risk);if(!rn2.rows[nPos-1])return null;var rr2=rn2.rows[nPos-1];return{nPos:nPos,step:step,aDist:rr2.dist,cLot:rr2.cLot,loss:rr2.loss,rPct:rr2.rPct}}
+  }catch(e){}
+  return null;
+ }
+ // Round lot: arithmetic rules (5 → up, else down) to 0.01
+ function rLot(v){var rounded=Math.round(v*100)/100;if(rounded<0.01)rounded=0.01;if(rounded>100)rounded=100;return rounded}
+ // Identify active series: which series have at least one position in [0..stopIdx]
+ function activeSeries(){var act=[];var cum=0;for(var i=0;i<groups.length;i++){var c=parseInt(groups[i].c)||0;var startIdx=cum;cum+=c;if(sP2>=startIdx)act.push(i)}return act}
+ // Min sum count enforcement: ladder shouldn't shrink below 5 positions in stopDist/step modes
+ // (in nPos mode user explicitly chose small N — respect their choice)
+ var minSumC=mode==="nPos"?Math.min(2,sumGC):5;
+ function passesMinC(ng){var s=0;for(var i=0;i<ng.length;i++)s+=parseInt(ng[i].c)||0;return s>=minSumC}
+ // Counts must be non-increasing between consecutive series (no upward jumps that break ladder shape)
+ // Allows: [5,4,3,2,1], [3,3,3,3,3], [10,8,6,4,2], etc. Forbids: [5,1,3,2,1] (U-shape).
+ function isMonotonicCounts(ng){for(var i=0;i<ng.length-1;i++){var a=parseInt(ng[i].c)||0,b=parseInt(ng[i+1].c)||0;if(b>a)return false}return true}
+ // Fingerprint a candidate's resulting config to detect clones across mechanisms
+ function fpCand(c){if(!c)return"";var p=c.newGroups.map(function(g){return g.c+":"+g.l.toFixed(2)}).join(",");return p+"|m="+(c.newMult||mult).toFixed(2)}
+ // Mechanism 1: Sole scale (global)
+ function mechSoleScale(target){var best=null;var stops=[];for(var s=0.05;s<=20;s+=0.05)stops.push(s);for(var s2=20;s2<=50;s2+=1)stops.push(s2);for(var i=0;i<stops.length;i++){var s=stops[i];var ng=groups.map(function(g){return{c:g.c,l:rLot(g.l*s)}});var changedCount=0;for(var k=0;k<ng.length;k++)if(ng[k].l!==groups[k].l)changedCount++;if(changedCount===0)continue;var ev=evalCand(ng,mult);if(!ev)continue;var gap=Math.abs(ev.loss-target);if(!best||gap<best.gap)best={mech:"soleScale",badge:"Лоты целиком",scale:s,newGroups:ng,newMult:mult,newCD:ev,gap:gap,changed:changedCount}}return best}
+ // Mechanism 2: Active scale (only series in horizon)
+ function mechActiveScale(target,activeIdx){if(activeIdx.length===0||activeIdx.length===groups.length)return null;var best=null;var stops=[];for(var s=0.05;s<=20;s+=0.05)stops.push(s);for(var s2=20;s2<=50;s2+=1)stops.push(s2);for(var i=0;i<stops.length;i++){var s=stops[i];var ng=groups.map(function(g,gi){if(activeIdx.indexOf(gi)>=0)return{c:g.c,l:rLot(g.l*s)};return{c:g.c,l:g.l}});var changedCount=0;for(var k=0;k<ng.length;k++)if(ng[k].l!==groups[k].l)changedCount++;if(changedCount===0)continue;var ev=evalCand(ng,mult);if(!ev)continue;var gap=Math.abs(ev.loss-target);if(!best||gap<best.gap)best={mech:"activeScale",badge:"Активные серии",scale:s,activeIdx:activeIdx,newGroups:ng,newMult:mult,newCD:ev,gap:gap,changed:changedCount}}return best}
+ // Mechanism 3: Sole multiplier
+ function mechSoleMult(target,sumGCval){if(sP2<sumGCval)return null;var best=null;for(var m=1.0;m<=1.5;m+=0.01){m=Math.round(m*100)/100;if(m===mult)continue;var ev=evalCand(groups,m);if(!ev)continue;var gap=Math.abs(ev.loss-target);if(!best||gap<best.gap)best={mech:"soleMult",badge:"Множитель",newMult:m,newGroups:groups,newCD:ev,gap:gap,changed:1}}return best}
+ // Mechanism 4: Count change (1-2 series only)
+ function mechCount(target){var best=null;var origSum=0;for(var i=0;i<groups.length;i++)origSum+=parseInt(groups[i].c)||0;function tryDelta(idx,newC){if(newC<1||newC>20)return;var ng=groups.map(function(g,gi){return{c:gi===idx?newC:g.c,l:g.l}});if(!passesMinC(ng))return;if(!isMonotonicCounts(ng))return;var ev=evalCand(ng,mult);if(!ev)return;var gap=Math.abs(ev.loss-target);if(!best||gap<best.gap)best={mech:"count",badge:"Количество позиций",newGroups:ng,newMult:mult,newCD:ev,gap:gap,changed:1,countDiff:[{idx:idx,oldC:groups[idx].c,newC:newC}]}}for(var i=0;i<groups.length;i++){var orig=parseInt(groups[i].c)||0;for(var d=-5;d<=5;d++){if(d===0)continue;tryDelta(i,orig+d)}}// Two-series adjustment (limited)
+  function tryDelta2(i1,c1,i2,c2){if(c1<1||c1>20||c2<1||c2>20)return;var ng=groups.map(function(g,gi){return{c:gi===i1?c1:gi===i2?c2:g.c,l:g.l}});if(!passesMinC(ng))return;if(!isMonotonicCounts(ng))return;var ev=evalCand(ng,mult);if(!ev)return;var gap=Math.abs(ev.loss-target);if(!best||gap<best.gap-0.5)best={mech:"count",badge:"Количество позиций",newGroups:ng,newMult:mult,newCD:ev,gap:gap,changed:2,countDiff:[{idx:i1,oldC:groups[i1].c,newC:c1},{idx:i2,oldC:groups[i2].c,newC:c2}]}}for(var ii=0;ii<groups.length-1;ii++){var oi=parseInt(groups[ii].c)||0;for(var jj=ii+1;jj<groups.length;jj++){var oj=parseInt(groups[jj].c)||0;for(var di=-3;di<=3;di+=1){for(var dj=-3;dj<=3;dj+=1){if(di===0&&dj===0)continue;tryDelta2(ii,oi+di,jj,oj+dj)}}}}return best}
+ // Mechanism 5: Lots + Mult (combined)
+ function mechLotsMult(target,sumGCval){if(sP2<sumGCval)return null;var best=null;var scaleCands=[0.1,0.2,0.3,0.5,0.7,0.85,1.0,1.15,1.3,1.5,1.75,2.0,2.5,3.0,4.0,5.0,7.0,10.0,15.0];for(var i=0;i<scaleCands.length;i++){var s=scaleCands[i];var ng=groups.map(function(g){return{c:g.c,l:rLot(g.l*s)}});var lotsCh=0;for(var k=0;k<ng.length;k++)if(ng[k].l!==groups[k].l)lotsCh++;for(var m=1.0;m<=1.5;m+=0.02){m=Math.round(m*100)/100;var ev=evalCand(ng,m);if(!ev)continue;var gap=Math.abs(ev.loss-target);var ch=lotsCh+(m!==mult?1:0);if(ch===0)continue;if(!best||gap<best.gap)best={mech:"lotsMult",badge:"Лоты + Множитель",scale:s,newMult:m,newGroups:ng,newCD:ev,gap:gap,changed:ch}}}return best}
+ // Mechanism 6: Lots + Counts
+ function mechLotsCount(target){var best=null;var scaleCands=[0.3,0.5,0.7,0.85,1.0,1.15,1.3,1.5,2.0,3.0,5.0];for(var i=0;i<scaleCands.length;i++){var s=scaleCands[i];for(var ci=0;ci<groups.length;ci++){var origC=parseInt(groups[ci].c)||0;for(var d=-4;d<=4;d++){if(d===0)continue;var newC=origC+d;if(newC<1||newC>20)continue;var ng=groups.map(function(g,gi){var nl=rLot(g.l*s);return{c:gi===ci?newC:g.c,l:nl}});if(!passesMinC(ng))continue;if(!isMonotonicCounts(ng))continue;var lotsCh=0;for(var k=0;k<ng.length;k++)if(ng[k].l!==groups[k].l)lotsCh++;var ev=evalCand(ng,mult);if(!ev)continue;var gap=Math.abs(ev.loss-target);if(!best||gap<best.gap)best={mech:"lotsCount",badge:"Лоты + Позиции",scale:s,newGroups:ng,newMult:mult,newCD:ev,gap:gap,changed:lotsCh+1,countDiff:[{idx:ci,oldC:origC,newC:newC}]}}}}return best}
+ // Mechanism 7: Mult + Counts
+ function mechMultCount(target,sumGCval){if(sP2<sumGCval&&sumGCval>0)return null;var best=null;for(var ci=0;ci<groups.length;ci++){var origC=parseInt(groups[ci].c)||0;for(var d=-4;d<=4;d++){if(d===0)continue;var newC=origC+d;if(newC<1||newC>20)continue;var ng=groups.map(function(g,gi){return{c:gi===ci?newC:g.c,l:g.l}});if(!passesMinC(ng))continue;if(!isMonotonicCounts(ng))continue;for(var m=1.0;m<=1.5;m+=0.02){m=Math.round(m*100)/100;var ev=evalCand(ng,m);if(!ev)continue;var gap=Math.abs(ev.loss-target);if(!best||gap<best.gap)best={mech:"multCount",badge:"Множитель + Позиции",newMult:m,newGroups:ng,newCD:ev,gap:gap,changed:2,countDiff:[{idx:ci,oldC:origC,newC:newC}]}}}}return best}
+ // Mechanism 8: Triple — lazy, only if singles+pairs failed
+ function mechTriple(target){var best=null;var scaleCands=[0.3,0.5,0.85,1.0,1.3,2.0,3.0,5.0];for(var i=0;i<scaleCands.length;i++){var s=scaleCands[i];for(var ci=0;ci<groups.length;ci++){var origC=parseInt(groups[ci].c)||0;for(var d=-3;d<=3;d+=1){if(d===0)continue;var newC=origC+d;if(newC<1||newC>20)continue;var ng=groups.map(function(g,gi){var nl=rLot(g.l*s);return{c:gi===ci?newC:g.c,l:nl}});if(!passesMinC(ng))continue;if(!isMonotonicCounts(ng))continue;var lotsCh=0;for(var k=0;k<ng.length;k++)if(ng[k].l!==groups[k].l)lotsCh++;for(var m=1.0;m<=1.5;m+=0.05){m=Math.round(m*100)/100;var ev=evalCand(ng,m);if(!ev)continue;var gap=Math.abs(ev.loss-target);var multCh=m!==mult?1:0;var ch=lotsCh+1+multCh;if(!best||gap<best.gap)best={mech:"triple",badge:"Смена Всех Параметров",scale:s,newMult:m,newGroups:ng,newCD:ev,gap:gap,changed:ch,countDiff:[{idx:ci,oldC:origC,newC:newC}]}}}}}return best}
+
+ var suggestion=null,alternatives=[],diagnostic=false;
  if(shR&&cD&&cC&&!dismissed){
   var target=dep*(risk/100);
   var curLoss=cD.loss;
-  if(curLoss>0&&Math.abs(curLoss-target)>target*0.05){
-   var rawScale=target/curLoss;
-   if(rawScale>0.02&&rawScale<50){
-    var newGroups=groups.map(function(g){var newL=Math.round(g.l*rawScale*100)/100;if(newL<0.01)newL=0.01;if(newL>100)newL=100;return{c:g.c,l:newL}});
-    var changed=false;for(var sgi=0;sgi<newGroups.length;sgi++){if(newGroups[sgi].l!==groups[sgi].l){changed=true;break}}
-    if(changed){
-     var newLAD=bL(newGroups,mult);var newCD=null;
-     try{
-      if(mode==="step"){var ns=cG(inst,price,dep,step,dir,csOvr,newLAD,risk);if(ns.stopIdx>=0){var nr=ns.rows[ns.stopIdx];newCD={nPos:ns.stopIdx+1,step:step,aDist:nr.dist,cLot:nr.cLot,loss:nr.loss,rPct:nr.rPct}}}
-      else if(mode==="stopDist"){var nsd=fO(inst,price,dep,sDist,dir,csOvr,newLAD,risk);var nv=selV==="below"?nsd.below:nsd.above;if(!nv)nv=nsd.below||nsd.above;if(nv)newCD=nv}
-      else if(mode==="nPos"){var nn=cG(inst,price,dep,step,dir,csOvr,newLAD,risk);if(nn.rows[nPos-1]){var nrr=nn.rows[nPos-1];newCD={nPos:nPos,step:step,aDist:nrr.dist,cLot:nrr.cLot,loss:nrr.loss,rPct:nrr.rPct}}}
-     }catch(e){}
-     if(newCD){suggestion={scale:rawScale,newGroups:newGroups,curLoss:curLoss,curRPct:cD.rPct,newLoss:newCD.loss,newRPct:newCD.rPct,target:target,diff:newGroups.map(function(g,i){return{idx:i+1,oldL:groups[i].l,newL:g.l}})}}
+  var oldGap=Math.abs(curLoss-target);
+  if(curLoss>0&&oldGap>target*0.05){
+   var minImpr=Math.min(Math.max(oldGap*0.05,1.0),oldGap*0.95);
+   var actIdx=activeSeries();
+   var cands=[];
+   var c1=mechSoleScale(target);if(c1)cands.push(c1);
+   var c2=mechActiveScale(target,actIdx);if(c2)cands.push(c2);
+   var c3=mechSoleMult(target,sumGC);if(c3)cands.push(c3);
+   var c4=mechCount(target);if(c4)cands.push(c4);
+   var c5=mechLotsMult(target,sumGC);if(c5)cands.push(c5);
+   var c6=mechLotsCount(target);if(c6)cands.push(c6);
+   var c7=mechMultCount(target,sumGC);if(c7)cands.push(c7);
+   // Filter by minImpr
+   var good=cands.filter(function(c){return (oldGap-c.gap)>=minImpr});
+   // Lazy triple: only if no good single/pair
+   if(good.length===0){
+    var c8=mechTriple(target);
+    if(c8&&(oldGap-c8.gap)>=minImpr)good.push(c8);
+   }
+   // Sort by gap, then by changed count (fewer changes wins ties within 10%)
+   good.sort(function(a,b){if(Math.abs(a.gap-b.gap)<oldGap*0.1)return a.changed-b.changed;return a.gap-b.gap});
+   if(good.length===0){
+    diagnostic=true;
+   }else{
+    var bestC=good[0];
+    var sgRPct=(bestC.newCD.loss/dep*100);
+    suggestion={
+     mech:bestC.mech,badge:bestC.badge,
+     scale:bestC.scale||null,newMult:bestC.newMult,
+     newGroups:bestC.newGroups,
+     curLoss:curLoss,curRPct:cD.rPct,
+     newLoss:bestC.newCD.loss,newRPct:sgRPct,
+     target:target,
+     diff:bestC.newGroups.map(function(g,i){return{idx:i+1,oldL:groups[i].l,newL:g.l,oldC:groups[i].c,newC:g.c}}),
+     countDiff:bestC.countDiff||null,
+     oldMult:mult
+    };
+    // Up to 2 alternatives, distinct mechanisms AND distinct final configurations
+    var seenMech={};seenMech[bestC.mech]=1;
+    var seenFp={};seenFp[fpCand(bestC)]=1;
+    for(var ai=1;ai<good.length&&alternatives.length<2;ai++){
+     if(seenMech[good[ai].mech])continue;
+     var fp=fpCand(good[ai]);
+     if(seenFp[fp])continue;
+     seenMech[good[ai].mech]=1;
+     seenFp[fp]=1;
+     var alt=good[ai];var altRPct=(alt.newCD.loss/dep*100);
+     alternatives.push({
+      mech:alt.mech,badge:alt.badge,
+      scale:alt.scale||null,newMult:alt.newMult,
+      newGroups:alt.newGroups,newLoss:alt.newCD.loss,newRPct:altRPct,
+      diff:alt.newGroups.map(function(g,i){return{idx:i+1,oldL:groups[i].l,newL:g.l,oldC:groups[i].c,newC:g.c}}),
+      countDiff:alt.countDiff||null,
+      oldMult:mult
+     });
     }
    }
   }
  }
- function applySuggestion(){if(!suggestion)return;sG(suggestion.newGroups);sFk(true);sGI(suggestion.newGroups.map(function(g){return{c:String(g.c),l:String(g.l.toFixed(2))}}))}
+ function applyCand(cand){if(!cand)return;sG(cand.newGroups);if(cand.newMult&&cand.newMult!==mult){sMul(cand.newMult);sMI(cand.newMult.toFixed(2))}sFk(true);sGI(cand.newGroups.map(function(g){return{c:String(g.c),l:String(g.l.toFixed(2))}}));sDm(true)}
+ function applySuggestion(){applyCand(suggestion)}
  function dismissSuggestion(){sDm(true)}
 
  function onCChange(idx,val){var newGIn=gIn.slice();newGIn[idx]={c:val,l:gIn[idx].l};sGI(newGIn);var v=parseInt(val);if(!isNaN(v)&&v>=1&&v<=20){var ng=groups.slice();ng[idx]={c:v,l:groups[idx].l};sG(ng);sFk(true)}}
@@ -307,16 +435,24 @@ function App(){
     !hAb&&hBl?h("div",{style:{marginTop:10}},h(WB,{type:"info"},"При таком расстоянии невозможно набрать объём для убытка ",risk.toFixed(2)," %. Увеличьте расстояние.")):null
    ):null,
    ws.length>0?h("div",{style:{marginBottom:20}},ws.map(function(w,i){return h(WB,{key:i,type:w.t},w.m)})):null,
+   diagnostic?h("div",{style:{background:"linear-gradient(180deg,rgba(245,158,11,.10),rgba(245,158,11,.04))",border:"1px solid rgba(245,158,11,.32)",borderRadius:18,padding:"20px 24px",marginBottom:20,backdropFilter:"blur(12px)"}},
+    h("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:10,flexWrap:"wrap"}},
+     h("span",{style:{fontSize:18}},"\u26A0\uFE0F"),
+     h("span",{style:{fontSize:13,color:"#f59e0b",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700}},"Лестница застряла")
+    ),
+    h("div",{style:{fontSize:14.5,color:"#cbd5e1",lineHeight:1.6,letterSpacing:"-0.005em"}},"Текущая лестница близка к лимитам округления лотов. Чтобы попасть точнее в риск ",risk.toFixed(2)," %, попробуйте увеличить депозит, изменить расстояние стопа или процент риска.")
+   ):null,
    suggestion?h("div",{style:{background:"linear-gradient(180deg,rgba(59,130,246,.10),rgba(6,182,212,.05))",border:"1px solid rgba(59,130,246,.32)",borderRadius:18,padding:24,marginBottom:20,backdropFilter:"blur(12px)",boxShadow:"0 8px 32px rgba(59,130,246,.10)"}},
     h("div",{style:{display:"flex",alignItems:"center",gap:10,marginBottom:14,flexWrap:"wrap"}},
-     h("span",{style:{fontSize:18}},"\u2728"),
-     h("span",{style:{fontSize:13,color:"#60a5fa",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700}},"Рекомендация автоподбора")
+     h("svg",{width:16,height:16,viewBox:"0 0 16 16",style:{flexShrink:0}},
+      h("defs",null,h("linearGradient",{id:"sparkG",x1:"0",y1:"0",x2:"1",y2:"1"},h("stop",{offset:"0%",stopColor:"#3b82f6"}),h("stop",{offset:"100%",stopColor:"#06b6d4"}))),
+      h("path",{d:"M8 0.5 L9.3 6.7 L15.5 8 L9.3 9.3 L8 15.5 L6.7 9.3 L0.5 8 L6.7 6.7 Z",fill:"url(#sparkG)"})
+     ),
+     h("span",{style:{fontSize:13,color:"#60a5fa",textTransform:"uppercase",letterSpacing:".1em",fontWeight:700}},"Рекомендация автоподбора"),
+     h(MechBadge,{label:suggestion.badge})
     ),
-    h("div",{style:{display:"flex",alignItems:"baseline",gap:14,marginBottom:18,flexWrap:"wrap"}},
-     h("span",{style:{fontSize:16,color:"#cbd5e1"}},"Масштабировать лестницу"),
-     h("span",{style:{fontSize:32,fontWeight:700,color:"#60a5fa",fontVariantNumeric:"tabular-nums",letterSpacing:"-0.025em"}},"\u00D7"+suggestion.scale.toFixed(2)),
-     h("span",{style:{fontSize:14,color:"#94a3b8"}},"для попадания в "+risk.toFixed(2)+" %")
-    ),
+    h("div",{style:{fontSize:17,color:"#e2e8f0",fontWeight:600,marginBottom:6,letterSpacing:"-0.015em"}},suggHeadline(suggestion)),
+    h("div",{style:{fontSize:13.5,color:"#94a3b8",marginBottom:18}},"для попадания в ",risk.toFixed(2)," %"),
     h("div",{style:{display:"flex",gap:20,marginBottom:18,flexWrap:"wrap",alignItems:"center"}},
      h("div",{style:{flex:"1 1 160px"}},
       h("div",{style:{fontSize:11,color:"#94a3b8",textTransform:"uppercase",letterSpacing:".08em",fontWeight:600,marginBottom:6}},"Сейчас"),
@@ -328,17 +464,29 @@ function App(){
       h("div",{style:{fontSize:20,color:"#10b981",fontWeight:700,fontVariantNumeric:"tabular-nums",letterSpacing:"-0.02em"}},"$"+fM(suggestion.newLoss)+" / "+suggestion.newRPct.toFixed(2)+" %")
      )
     ),
-    h("div",{style:{display:"grid",gridTemplateColumns:"repeat(5, 1fr)",gap:8,marginBottom:18,padding:"14px 0",borderTop:"1px solid rgba(30,41,59,.6)",borderBottom:"1px solid rgba(30,41,59,.6)"}},
-     suggestion.diff.map(function(d,i){var ch=d.oldL!==d.newL;return h("div",{key:i,style:{textAlign:"center"}},
-      h("div",{style:{fontSize:11,color:"#64748b",marginBottom:5,textTransform:"uppercase",letterSpacing:".05em",fontWeight:600}},"Серия "+d.idx),
-      h("div",{style:{fontSize:14,color:"#94a3b8",fontVariantNumeric:"tabular-nums"}},d.oldL.toFixed(2),h("span",{style:{margin:"0 4px",color:"#475569"}},"\u2192"),h("span",{style:{color:ch?"#60a5fa":"#94a3b8",fontWeight:ch?700:400}},d.newL.toFixed(2)))
-     )})
-    ),
-    forked?h("div",{style:{fontSize:12.5,color:"#94a3b8",marginBottom:14,padding:"8px 12px",background:"rgba(245,158,11,.06)",border:"1px solid rgba(245,158,11,.18)",borderRadius:8}},"Применяется к вашей изменённой структуре. Пропорции лотов между сериями сохраняются."):null,
+    h("div",{style:{borderTop:"1px solid rgba(30,41,59,.6)",borderBottom:"1px solid rgba(30,41,59,.6)",marginBottom:14}},suggDiffSection(suggestion,1)),
+    forked?h("div",{style:{fontSize:12.5,color:"#94a3b8",marginBottom:14,padding:"8px 12px",background:"rgba(245,158,11,.06)",border:"1px solid rgba(245,158,11,.18)",borderRadius:8}},"Применяется к вашей изменённой структуре."):null,
     h("div",{style:{display:"flex",gap:10,flexWrap:"wrap"}},
      h("button",{onClick:applySuggestion,style:{flex:"1 1 200px",background:"linear-gradient(135deg,#3b82f6,#06b6d4)",border:"none",borderRadius:10,padding:"13px 24px",color:"#fff",cursor:"pointer",fontSize:14.5,fontWeight:700,fontFamily:"inherit",letterSpacing:"-0.005em",boxShadow:"0 4px 14px rgba(59,130,246,.35)"}},"Применить рекомендацию"),
      h("button",{onClick:dismissSuggestion,style:{flex:"0 0 auto",background:"transparent",border:"1px solid #334155",borderRadius:10,padding:"13px 22px",color:"#94a3b8",cursor:"pointer",fontSize:14,fontWeight:600,fontFamily:"inherit"}},"Не сейчас")
-    )
+    ),
+    alternatives.length>0?h("div",{style:{marginTop:18,paddingTop:18,borderTop:"1px solid rgba(30,41,59,.5)"}},
+     h("button",{onClick:function(){sAlt(!altOpen)},style:{background:"none",border:"none",color:"#94a3b8",cursor:"pointer",fontSize:13,padding:0,fontFamily:"inherit",fontWeight:600,letterSpacing:"-0.005em",display:"flex",alignItems:"center",gap:6}},
+      h("span",{style:{fontSize:11,transform:altOpen?"rotate(90deg)":"rotate(0deg)",display:"inline-block",transition:"transform .2s"}},"\u25B6"),
+      "Другие варианты подбора (",alternatives.length,")"
+     ),
+     altOpen?h("div",{style:{marginTop:14,display:"flex",flexDirection:"column",gap:12}},
+      alternatives.map(function(alt,ai){return h("div",{key:ai,style:{background:"rgba(15,23,42,.4)",border:"1px solid rgba(30,41,59,.6)",borderRadius:12,padding:"16px 18px"}},
+       h("div",{style:{display:"flex",alignItems:"center",gap:8,marginBottom:8,flexWrap:"wrap"}},
+        h(MechBadge,{label:alt.badge})
+       ),
+       h("div",{style:{fontSize:14.5,color:"#cbd5e1",fontWeight:600,marginBottom:6,letterSpacing:"-0.005em"}},suggHeadline(alt)),
+       h("div",{style:{fontSize:13,color:"#94a3b8",marginBottom:10,fontVariantNumeric:"tabular-nums"}},"Результат: ",h("span",{style:{color:"#10b981",fontWeight:700}},"$",fM(alt.newLoss)," / ",alt.newRPct.toFixed(2)," %")),
+       h("div",{style:{marginBottom:12}},suggDiffSection(alt,0.85)),
+       h("button",{onClick:function(){applyCand(alt)},style:{background:"transparent",border:"1px solid #3b82f6",color:"#60a5fa",borderRadius:8,padding:"9px 18px",cursor:"pointer",fontSize:13,fontWeight:600,fontFamily:"inherit"}},"Применить этот вариант")
+      )})
+     ):null
+    ):null
    ):null,
    shR?h("div",null,
     h("div",{className:"cards-wrap"},
